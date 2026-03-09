@@ -20,8 +20,8 @@ This repository does **not** implement:
 
 ## Current Layout
 
-The codebase is currently a **single root package** plus one black-box test
-package:
+The codebase is currently a **single root package** plus dedicated black-box,
+fuzz, and race test packages:
 
 ```text
 .
@@ -33,8 +33,16 @@ package:
 ├── decoder_test.go
 ├── frame_test.go
 ├── registry_test.go
-├── test/
+├── tests/
 │   └── public_api_test.go
+├── tests_fuzz/
+│   ├── doc.go
+│   ├── frame_fuzz_test.go
+│   └── registry_fuzz_test.go
+├── tests_race/
+│   ├── doc.go
+│   ├── frame_race_test.go
+│   └── registry_race_test.go
 ├── Makefile
 ├── golangci.yml
 └── README.md
@@ -68,14 +76,15 @@ go mod tidy
 ```sh
 go test ./...
 make test
+make test-fuzz
+make test-race
 ```
 
 Notes:
 
 - `make test` writes reports into `reports/`
-- there are currently no example tests, fuzz tests, benchmark packages, or race
-  specific packages in this repository even though some generic Make targets
-  exist
+- `tests_fuzz/` contains dedicated fuzz targets
+- `tests_race/` contains concurrency tests enabled with the `race` build tag
 
 ### Lint and Formatting
 
@@ -157,17 +166,30 @@ Rules:
 
 ### Public API tests
 
-Public black-box tests live in `test/` and use `package ocpp16json_test`.
+Public black-box tests live in `tests/` and use `package ocpp16json_test`.
 
 Current file:
 
-- `test/public_api_test.go`
+- `tests/public_api_test.go`
 
 Use that package to verify behavior as a consumer would see it:
 
 - imports through `github.com/aasanchez/ocpp16j`
 - interaction with `ocpp16messages`
 - wrapped validation behavior
+
+### Fuzz and race tests
+
+Specialized transport stress tests live outside the root package:
+
+- `tests_fuzz/`: fuzz targets for raw frame parsing and registry decoding
+- `tests_race/`: race-detector-focused black-box tests
+
+Keep those tests:
+
+- small and targeted
+- free of business-logic assumptions
+- aligned with the existing transport-only API boundaries
 
 ## Coverage Expectations
 
@@ -176,7 +198,9 @@ This repository currently targets very high coverage for the root package.
 When adding logic:
 
 - add tests in the root package for internal branches
-- add or update black-box tests in `test/` for exported behavior
+- add or update black-box tests in `tests/` for exported behavior
+- add `tests_fuzz/` or `tests_race/` coverage when concurrency or parser
+  robustness changes
 - keep `go test ./...` green
 
 ## Lint Expectations
