@@ -71,5 +71,5 @@ pkgsite: ## Start a local pkgsite server to browse Go documentation interactivel
 	@go mod tidy
 	@echo "Launching pkgsite in the background..."
 	@nohup pkgsite -http=:8080 . > /dev/null 2>&1 &
-	@echo "pkgsite server started. You can view the documentation at http://localhost:8080/github.com/aasanchez/ocpp16messages"
-	@open -a "Google Chrome" http://localhost:8080/github.com/aasanchez/ocpp16messages
+	@echo "pkgsite server started. You can view the documentation at http://localhost:8080/github.com/aasanchez/ocpp16j"
+	@open -a "Google Chrome" http://localhost:8080/github.com/aasanchez/ocpp16j
