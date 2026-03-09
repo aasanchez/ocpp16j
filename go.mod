@@ -1,5 +1,5 @@
-module github.com/aasanchez/ocpp16json
+module github.com/aasanchez/ocpp16j
 
-go 1.26.0
+go 1.24.6
 
-require github.com/aasanchez/ocpp16messages v1.0.0
+require github.com/aasanchez/ocpp16messages v1.0.3

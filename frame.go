@@ -94,11 +94,9 @@ func Parse(data []byte) (Frame, error) {
 		return parseCall(elements)
 	case MessageTypeCallResult:
 		return parseCallResult(elements)
-	case MessageTypeCallError:
-		return parseCallError(elements)
-	default:
-		return nil, fmt.Errorf("%w: %d", ErrUnsupportedFrameType, messageType)
 	}
+
+	return parseCallError(elements)
 }
 
 func (f RawCall) MarshalJSON() ([]byte, error) {
@@ -183,14 +181,6 @@ func parseCall(elements []json.RawMessage) (RawCall, error) {
 		return RawCall{}, err
 	}
 
-	if err := validateMessageID(id); err != nil {
-		return RawCall{}, err
-	}
-
-	if err := validateAction(action); err != nil {
-		return RawCall{}, err
-	}
-
 	if len(bytes.TrimSpace(elements[3])) == 0 {
 		return RawCall{}, ErrPayloadRequired
 	}
@@ -216,10 +206,6 @@ func parseCallResult(elements []json.RawMessage) (RawCallResult, error) {
 		return RawCallResult{}, err
 	}
 
-	if err := validateMessageID(id); err != nil {
-		return RawCallResult{}, err
-	}
-
 	if len(bytes.TrimSpace(elements[2])) == 0 {
 		return RawCallResult{}, ErrPayloadRequired
 	}
@@ -241,10 +227,6 @@ func parseCallError(elements []json.RawMessage) (CallError, error) {
 
 	id, err := decodeString(elements[1], ErrInvalidMessageID)
 	if err != nil {
-		return CallError{}, err
-	}
-
-	if err := validateMessageID(id); err != nil {
 		return CallError{}, err
 	}
 

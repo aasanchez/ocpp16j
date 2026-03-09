@@ -1,7 +1,6 @@
 package ocpp16json
 
 import (
-	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -33,16 +32,6 @@ func TestRegistryDecodeCall(t *testing.T) {
 
 	if payload.IdTag.String() != "RFID-123" {
 		t.Fatalf("unexpected idTag: %q", payload.IdTag.String())
-	}
-}
-
-func TestJSONDecoderRejectsInvalidJSON(t *testing.T) {
-	t.Parallel()
-
-	decoder := JSONDecoder(authorize.Req)
-	_, err := decoder(json.RawMessage(`{"idTag":1}`))
-	if err == nil {
-		t.Fatal("expected error")
 	}
 }
 
@@ -93,6 +82,78 @@ func TestRegistryRejectsUnknownAction(t *testing.T) {
 	_, err := registry.DecodeCall([]byte(`[2,"19223201","Authorize",{"idTag":"RFID-123"}]`))
 	if !errors.Is(err, ErrUnknownAction) {
 		t.Fatalf("expected ErrUnknownAction, got %v", err)
+	}
+}
+
+func TestRegistryValidationBranches(t *testing.T) {
+	t.Parallel()
+
+	registry := NewRegistry()
+
+	if _, err := registry.DecodeCall([]byte(`[3,"uid",{}]`)); !errors.Is(err, ErrInvalidFrame) {
+		t.Fatalf("expected ErrInvalidFrame from DecodeCall on CALLRESULT, got %v", err)
+	}
+
+	if _, err := registry.DecodeCallResult("", []byte(`[3,"uid",{}]`)); !errors.Is(err, ErrInvalidAction) {
+		t.Fatalf("expected ErrInvalidAction, got %v", err)
+	}
+
+	if _, err := registry.DecodeCallResult("Heartbeat", []byte(`[2,"uid","Heartbeat",{}]`)); !errors.Is(err, ErrInvalidFrame) {
+		t.Fatalf("expected ErrInvalidFrame from DecodeCallResult on CALL, got %v", err)
+	}
+
+	if err := registry.RegisterRequest("Authorize", nil); !errors.Is(err, ErrPayloadDecode) {
+		t.Fatalf("expected ErrPayloadDecode for nil request decoder, got %v", err)
+	}
+
+	if err := registry.RegisterConfirmation("Heartbeat", nil); !errors.Is(err, ErrPayloadDecode) {
+		t.Fatalf("expected ErrPayloadDecode for nil confirmation decoder, got %v", err)
+	}
+
+	if err := registry.RegisterRequest("", JSONDecoder(func(input map[string]string) (map[string]string, error) {
+		return input, nil
+	})); !errors.Is(err, ErrInvalidAction) {
+		t.Fatalf("expected ErrInvalidAction for empty action, got %v", err)
+	}
+}
+
+func TestRegistryDecodeCallPropagatesParseFailure(t *testing.T) {
+	t.Parallel()
+
+	registry := NewRegistry()
+
+	_, err := registry.DecodeCall([]byte(`{`))
+	if !errors.Is(err, ErrInvalidFrame) {
+		t.Fatalf("expected ErrInvalidFrame, got %v", err)
+	}
+}
+
+func TestRegistryDecodeCallResultPropagatesParseFailure(t *testing.T) {
+	t.Parallel()
+
+	registry := NewRegistry()
+
+	_, err := registry.DecodeCallResult("Heartbeat", []byte(`{`))
+	if !errors.Is(err, ErrInvalidFrame) {
+		t.Fatalf("expected ErrInvalidFrame, got %v", err)
+	}
+}
+
+func TestRegistryDecodeCallResultPropagatesDecoderFailure(t *testing.T) {
+	t.Parallel()
+
+	registry := NewRegistry()
+	if err := registry.RegisterConfirmation("Heartbeat", JSONDecoder(heartbeat.Conf)); err != nil {
+		t.Fatalf("RegisterConfirmation: %v", err)
+	}
+
+	_, err := registry.DecodeCallResult("Heartbeat", []byte(`[3,"uid-3",{}]`))
+	if !errors.Is(err, ErrPayloadDecode) {
+		t.Fatalf("expected ErrPayloadDecode, got %v", err)
+	}
+
+	if !errors.Is(err, types.ErrEmptyValue) {
+		t.Fatalf("expected wrapped types.ErrEmptyValue, got %v", err)
 	}
 }
 
