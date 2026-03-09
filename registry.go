@@ -7,9 +7,14 @@ import (
 )
 
 // PayloadDecoder converts a raw payload into a validated typed value.
+//
+// Decoders are typically created with JSONDecoder and backed by constructors
+// from github.com/aasanchez/ocpp16messages.
 type PayloadDecoder func(json.RawMessage) (any, error)
 
 // Registry stores request and confirmation payload decoders by action name.
+//
+// A Registry is safe for concurrent use.
 type Registry struct {
 	mu            sync.RWMutex
 	requests      map[string]PayloadDecoder
@@ -26,6 +31,10 @@ func NewRegistry() *Registry {
 }
 
 // RegisterRequest registers a decoder for a CALL action.
+//
+// It returns ErrInvalidAction for an empty action name,
+// ErrActionAlreadyRegistered for duplicate registrations, and
+// ErrPayloadDecode if decoder is nil.
 func (r *Registry) RegisterRequest(
 	action string,
 	decoder PayloadDecoder,
@@ -34,6 +43,10 @@ func (r *Registry) RegisterRequest(
 }
 
 // RegisterConfirmation registers a decoder for a CALLRESULT action.
+//
+// It returns ErrInvalidAction for an empty action name,
+// ErrActionAlreadyRegistered for duplicate registrations, and
+// ErrPayloadDecode if decoder is nil.
 func (r *Registry) RegisterConfirmation(
 	action string,
 	decoder PayloadDecoder,
@@ -42,6 +55,9 @@ func (r *Registry) RegisterConfirmation(
 }
 
 // DecodeCall parses and decodes a CALL frame.
+//
+// It validates the envelope with Parse, selects the decoder registered for the
+// frame action, and returns a DecodedCall with a typed payload value.
 func (r *Registry) DecodeCall(data []byte) (DecodedCall, error) {
 	frame, err := Parse(data)
 	if err != nil {
@@ -66,6 +82,9 @@ func (r *Registry) DecodeCall(data []byte) (DecodedCall, error) {
 }
 
 // DecodeCallResult parses and decodes a CALLRESULT frame.
+//
+// The action must be provided by the caller because OCPP-J CALLRESULT frames
+// do not include it on the wire.
 func (r *Registry) DecodeCallResult(
 	action string,
 	data []byte,

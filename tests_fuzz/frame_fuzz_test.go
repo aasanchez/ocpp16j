@@ -9,6 +9,14 @@ import (
 	ocpp16json "github.com/aasanchez/ocpp16j"
 )
 
+const (
+	fuzzProtocolError = "ProtocolError"
+	fuzzEmptyObject   = `{}`
+	fuzzEmptyString   = ""
+	fuzzBadPayload    = "bad payload"
+	fuzzZeroLength    = 0
+)
+
 func FuzzParseFrameEnvelope(f *testing.F) {
 	f.Add([]byte(`[2,"uid-1","Authorize",{"idTag":"RFID-123"}]`))
 	f.Add([]byte(`[3,"uid-1",{"currentTime":"2025-01-02T15:04:05Z"}]`))
@@ -33,13 +41,13 @@ func FuzzParseFrameEnvelope(f *testing.F) {
 }
 
 func FuzzParseCallErrorDetails(f *testing.F) {
-	f.Add("ProtocolError", "bad payload", []byte(`{}`))
-	f.Add("ProtocolError", "bad payload", []byte(`{"field":"idTag"}`))
-	f.Add("ProtocolError", "bad payload", []byte(`[]`))
-	f.Add("ProtocolError", "bad payload", []byte(`null`))
-	f.Add("ProtocolError", "bad payload", []byte(`"oops"`))
-	f.Add("", "bad payload", []byte(`{}`))
-	f.Add("ProtocolError", "", []byte(`{}`))
+	f.Add(fuzzProtocolError, fuzzBadPayload, []byte(fuzzEmptyObject))
+	f.Add(fuzzProtocolError, fuzzBadPayload, []byte(`{"field":"idTag"}`))
+	f.Add(fuzzProtocolError, fuzzBadPayload, []byte(`[]`))
+	f.Add(fuzzProtocolError, fuzzBadPayload, []byte(`null`))
+	f.Add(fuzzProtocolError, fuzzBadPayload, []byte(`"oops"`))
+	f.Add(fuzzEmptyString, fuzzBadPayload, []byte(fuzzEmptyObject))
+	f.Add(fuzzProtocolError, fuzzEmptyString, []byte(fuzzEmptyObject))
 
 	f.Fuzz(func(
 		t *testing.T,
@@ -53,39 +61,16 @@ func FuzzParseCallErrorDetails(f *testing.F) {
 			t.Skip()
 		}
 
-		frame := append(
-			[]byte(`[4,"uid-1",`),
-			mustMarshalString(t, errorCode)...,
+		parsedFrame, err := ocpp16json.Parse(
+			buildCallErrorFrame(t, errorCode, errorDescription, errorDetails),
 		)
-		frame = append(frame, ',')
-		frame = append(frame, mustMarshalString(t, errorDescription)...)
-		frame = append(frame, ',')
-		frame = append(frame, errorDetails...)
-		frame = append(frame, ']')
-
-		parsedFrame, err := ocpp16json.Parse(frame)
 		if err != nil {
 			assertParseErrorContract(t, err)
 
 			return
 		}
 
-		callError, ok := parsedFrame.(ocpp16json.CallError)
-		if !ok {
-			t.Fatalf("unexpected parsed frame type: %T", parsedFrame)
-		}
-
-		if callError.ErrorCode == "" {
-			t.Fatal("CallError has empty code after Parse success")
-		}
-
-		if callError.ErrorDescription == "" {
-			t.Fatal("CallError has empty description after Parse success")
-		}
-
-		if callError.ErrorDetails == nil {
-			t.Fatal("CallError has nil details after Parse success")
-		}
+		assertCallErrorInvariant(t, parsedFrame)
 	})
 }
 
@@ -113,47 +98,17 @@ func assertFrameInvariant(t *testing.T, frame ocpp16json.Frame) {
 		t.Fatal("Parse returned nil frame without error")
 	}
 
-	if frame.MessageID() == "" {
+	if frame.MessageID() == fuzzEmptyString {
 		t.Fatal("parsed frame has empty message id")
 	}
 
 	switch typedFrame := frame.(type) {
 	case ocpp16json.RawCall:
-		if !ocpp16json.IsCall(typedFrame) {
-			t.Fatal("RawCall does not satisfy IsCall")
-		}
-
-		if typedFrame.Action == "" {
-			t.Fatal("RawCall has empty action")
-		}
-
-		if len(bytes.TrimSpace(typedFrame.Payload)) == 0 {
-			t.Fatal("RawCall has empty payload")
-		}
+		assertRawCallInvariant(t, typedFrame)
 	case ocpp16json.RawCallResult:
-		if !ocpp16json.IsCallResult(typedFrame) {
-			t.Fatal("RawCallResult does not satisfy IsCallResult")
-		}
-
-		if len(bytes.TrimSpace(typedFrame.Payload)) == 0 {
-			t.Fatal("RawCallResult has empty payload")
-		}
+		assertRawCallResultInvariant(t, typedFrame)
 	case ocpp16json.CallError:
-		if !ocpp16json.IsCallError(typedFrame) {
-			t.Fatal("CallError does not satisfy IsCallError")
-		}
-
-		if typedFrame.ErrorCode == "" {
-			t.Fatal("CallError has empty code")
-		}
-
-		if typedFrame.ErrorDescription == "" {
-			t.Fatal("CallError has empty description")
-		}
-
-		if typedFrame.ErrorDetails == nil {
-			t.Fatal("CallError has nil details")
-		}
+		assertCallErrorValueInvariant(t, typedFrame)
 	default:
 		t.Fatalf("unexpected frame type: %T", frame)
 	}
@@ -184,12 +139,14 @@ func assertJSONSemanticallyEqual(t *testing.T, left []byte, right []byte) {
 	t.Helper()
 
 	var leftValue any
+
 	err := json.Unmarshal(left, &leftValue)
 	if err != nil {
 		t.Fatalf("json.Unmarshal(left): %v", err)
 	}
 
 	var rightValue any
+
 	err = json.Unmarshal(right, &rightValue)
 	if err != nil {
 		t.Fatalf("json.Unmarshal(right): %v", err)
@@ -227,4 +184,97 @@ func mustMarshalString(t *testing.T, value string) []byte {
 	}
 
 	return data
+}
+
+func buildCallErrorFrame(
+	t *testing.T,
+	errorCode string,
+	errorDescription string,
+	errorDetails []byte,
+) []byte {
+	t.Helper()
+
+	frame := append(
+		[]byte(`[4,"uid-1",`),
+		mustMarshalString(t, errorCode)...,
+	)
+	frame = append(frame, ',')
+	frame = append(frame, mustMarshalString(t, errorDescription)...)
+	frame = append(frame, ',')
+	frame = append(frame, errorDetails...)
+
+	return append(frame, ']')
+}
+
+func assertCallErrorInvariant(t *testing.T, frame ocpp16json.Frame) {
+	t.Helper()
+
+	callError, ok := frame.(ocpp16json.CallError)
+	if !ok {
+		t.Fatalf("unexpected parsed frame type: %T", frame)
+	}
+
+	assertCallErrorValueInvariant(t, callError)
+}
+
+func assertRawCallInvariant(t *testing.T, call ocpp16json.RawCall) {
+	t.Helper()
+
+	if !ocpp16json.IsCall(call) {
+		t.Fatal("RawCall does not satisfy IsCall")
+	}
+
+	if call.Action == fuzzEmptyString {
+		t.Fatal("RawCall has empty action")
+	}
+
+	assertPayloadPresent(t, call.Payload, "RawCall has empty payload")
+}
+
+func assertRawCallResultInvariant(
+	t *testing.T,
+	result ocpp16json.RawCallResult,
+) {
+	t.Helper()
+
+	if !ocpp16json.IsCallResult(result) {
+		t.Fatal("RawCallResult does not satisfy IsCallResult")
+	}
+
+	assertPayloadPresent(t, result.Payload, "RawCallResult has empty payload")
+}
+
+func assertCallErrorValueInvariant(
+	t *testing.T,
+	callError ocpp16json.CallError,
+) {
+	t.Helper()
+
+	if !ocpp16json.IsCallError(callError) {
+		t.Fatal("CallError does not satisfy IsCallError")
+	}
+
+	if callError.ErrorCode == fuzzEmptyString {
+		t.Fatal("CallError has empty code")
+	}
+
+	if callError.ErrorDescription == fuzzEmptyString {
+		t.Fatal("CallError has empty description")
+	}
+
+	if callError.ErrorDetails == nil {
+		t.Fatal("CallError has nil details")
+	}
+}
+
+func assertPayloadPresent(
+	t *testing.T,
+	payload json.RawMessage,
+	message string,
+) {
+	t.Helper()
+
+	if len(bytes.TrimSpace(payload)) == fuzzZeroLength {
+		t.Fatal(message)
+	}
 }

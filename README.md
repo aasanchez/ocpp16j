@@ -1,46 +1,24 @@
 # OCPP 1.6 JSON for Go
 
-A strict Go implementation of the OCPP-J 1.6 wire format. This module focuses
-on JSON frame correctness and typed payload decoding on top of
-[`github.com/aasanchez/ocpp16messages`](https://github.com/aasanchez/ocpp16messages).
-It intentionally does not implement charge point behavior, central system
-behavior, WebSocket reconnection, or any protocol state machine.
+`github.com/aasanchez/ocpp16j` is a strict transport-layer implementation of
+the OCPP-J 1.6 wire format for Go.
 
-## Scope
+It is intentionally narrow:
 
-This repository is the transport layer for OCPP 1.6 JSON:
+- parse and validate OCPP JSON frames
+- marshal frames back to the canonical array shape
+- decode payloads through validated constructors from
+  [`github.com/aasanchez/ocpp16messages`](https://github.com/aasanchez/ocpp16messages)
+- expose stable sentinel errors for envelope failures
 
-- Parse and validate OCPP-J frames (`CALL`, `CALLRESULT`, `CALLERROR`)
-- Marshal frames back to the canonical JSON array form
-- Decode payloads into validated `ocpp16messages` request/confirmation types
-- Expose stable sentinel errors for envelope-level failures
+It intentionally does not implement:
 
-Out of scope:
+- charge point behavior
+- CSMS behavior
+- WebSocket clients or servers
+- retry, routing, or session state machines
 
-- Business logic and profile behavior
-- Session correlation and command routing policy
-- WebSocket client/server implementation
-
-The design follows the same principles as `ocpp16messages`: strict validation,
-small focused packages, explicit errors, and tests centered on wire
-correctness.
-
-## Why `CALLRESULT` Decoding Needs Context
-
-In OCPP-J 1.6, a `CALLRESULT` frame contains only:
-
-```json
-[3, "<uniqueId>", { ...payload... }]
-```
-
-The action name is not present on the wire, so typed response decoding is not
-fully stateless. This package makes that explicit:
-
-- `Parse` returns a raw frame for any valid OCPP-J message
-- `Registry.DecodeCall` decodes `CALL` payloads using the action in the frame
-- `Registry.DecodeCallResult` requires the caller to provide the related action
-
-That keeps the transport layer correct without inventing session behavior.
+This separation keeps the package focused on transport correctness.
 
 ## Installation
 
@@ -48,45 +26,141 @@ That keeps the transport layer correct without inventing session behavior.
 go get github.com/aasanchez/ocpp16j
 ```
 
-## Usage
+## Quick Start
 
 ```go
 package main
 
 import (
-    "fmt"
+	"fmt"
 
-    "github.com/aasanchez/ocpp16j"
-    "github.com/aasanchez/ocpp16messages/authorize"
+	ocpp16json "github.com/aasanchez/ocpp16j"
+	"github.com/aasanchez/ocpp16messages/authorize"
 )
 
 func main() {
-    registry := ocpp16j.NewRegistry()
-    _ = registry.RegisterRequest("Authorize", ocpp16j.JSONDecoder(authorize.Req))
+	registry := ocpp16json.NewRegistry()
 
-    frame, err := registry.DecodeCall(
-        []byte(`[2,"uid-1","Authorize",{"idTag":"RFID-123"}]`),
-    )
-    if err != nil {
-        panic(err)
-    }
+	err := registry.RegisterRequest(
+		"Authorize",
+		ocpp16json.JSONDecoder(authorize.Req),
+	)
+	if err != nil {
+		panic(err)
+	}
 
-    req := frame.Payload.(authorize.ReqMessage)
-    fmt.Println(frame.Action, req.IdTag.String())
+	decoded, err := registry.DecodeCall(
+		[]byte(`[2,"uid-1","Authorize",{"idTag":"RFID-123"}]`),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	req := decoded.Payload.(authorize.ReqMessage)
+
+	fmt.Println(decoded.Action)
+	fmt.Println(req.IdTag.String())
 }
 ```
 
+Expected output:
+
+```text
+Authorize
+RFID-123
+```
+
+## What The Package Handles
+
+### Inbound frames
+
+- `Parse` validates raw OCPP-J arrays and returns `RawCall`,
+  `RawCallResult`, or `CallError`
+- `Registry.DecodeCall` decodes request payloads using the action name found
+  in the frame
+- `Registry.DecodeCallResult` decodes confirmation payloads using the action
+  name provided by the caller
+
+### Outbound frames
+
+- `RawCall`, `RawCallResult`, and `CallError` marshal back to OCPP-J arrays
+- payload validation stays in `ocpp16messages`
+- transport wrapping stays in this package
+
+That split lets you validate payload semantics without mixing in transport or
+session policy.
+
+## End-To-End Flow
+
+The usual request/response flow is:
+
+1. Receive a raw OCPP-J JSON frame.
+2. Decode it with `Registry.DecodeCall(...)`.
+3. Work with the validated payload returned by `ocpp16messages`.
+4. Run your application logic.
+5. Validate the outgoing payload with `ocpp16messages`.
+6. Encode the response payload JSON and wrap it in `RawCallResult`.
+
+The package examples on pkgsite show this flow end to end, including:
+
+- request decode and validation
+- response construction and wrapping
+- raw frame parsing
+- `CALLRESULT` decoding
+- `CALLERROR` inspection
+
+Pkgsite:
+
+- [github.com/aasanchez/ocpp16j](https://pkg.go.dev/github.com/aasanchez/ocpp16j)
+
+## Why `CALLRESULT` Needs Action Context
+
+In OCPP-J 1.6, a `CALLRESULT` frame contains only:
+
+```json
+[3, "<uniqueId>", { ...payload... }]
+```
+
+The action name is not present on the wire. That is a protocol constraint, so
+this package keeps it explicit instead of hiding it behind guessed state:
+
+- `Parse` returns the raw frame
+- `Registry.DecodeCall` uses the action embedded in `CALL`
+- `Registry.DecodeCallResult` requires the related action from the caller
+
+## Error Model
+
+Envelope-level failures use stable sentinel errors such as:
+
+- `ErrInvalidFrame`
+- `ErrInvalidAction`
+- `ErrInvalidMessageID`
+- `ErrPayloadRequired`
+- `ErrPayloadDecode`
+- `ErrUnknownAction`
+
+Payload validation errors from `ocpp16messages` are wrapped, so `errors.Is`
+continues to work for both transport and domain validation checks.
+
+## Design Rules
+
+- transport correctness first
+- no business logic in this module
+- no hidden state for response decoding
+- validate payloads with `ocpp16messages`, not ad-hoc transport structs
+- keep examples and tests executable
+
 ## Status
 
-Initial transport skeleton. The current implementation covers:
+Current coverage includes:
 
-- Envelope parsing and validation
-- JSON marshaling for all three OCPP-J frame types
-- Registry-based typed decoding for request and confirmation payloads
-- Tests against real payload types from `ocpp16messages`
+- parsing and marshaling for `CALL`, `CALLRESULT`, and `CALLERROR`
+- typed request and confirmation decoding through a registry
+- package examples ready for pkgsite
+- fuzz coverage for malformed frames and payload decode paths
+- race-detector coverage for concurrent registry and parser use
 
-Next steps:
+Planned next steps:
 
-- Add registry helpers for the full OCPP 1.6 action set
-- Add fuzz tests for malformed frame envelopes
-- Add CI, coverage, and compatibility checks matching the upstream repository
+- prebuilt registries for the full OCPP 1.6 action set
+- broader confirmation/request helpers for consumers

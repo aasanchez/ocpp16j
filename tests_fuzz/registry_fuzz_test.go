@@ -3,6 +3,7 @@ package tests_fuzz
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +15,11 @@ import (
 )
 
 const maxFuzzStringLength = 1024
+
+const (
+	fuzzAuthorizeAction = "Authorize"
+	fuzzHeartbeatAction = "Heartbeat"
+)
 
 func FuzzRegistryDecodeAuthorizeCall(f *testing.F) {
 	f.Add("RFID-123")
@@ -28,52 +34,17 @@ func FuzzRegistryDecodeAuthorizeCall(f *testing.F) {
 			t.Skip()
 		}
 
-		registry := ocpp16json.NewRegistry()
-		err := registry.RegisterRequest(
-			"Authorize",
-			ocpp16json.JSONDecoder(authorize.Req),
-		)
-
+		registry, err := authorizeRegistry()
 		if err != nil {
 			t.Fatalf("RegisterRequest: %v", err)
 		}
 
-		payload, err := json.Marshal(map[string]string{"idTag": idTag})
+		frame, err := buildAuthorizeCallFrame(idTag)
 		if err != nil {
-			t.Fatalf("json.Marshal(payload): %v", err)
+			t.Fatalf("buildAuthorizeCallFrame: %v", err)
 		}
 
-		frame := append(
-			[]byte(`[2,"uid-1","Authorize",`),
-			append(payload, []byte(`]`)...)...,
-		)
-
-		decodedFrame, err := registry.DecodeCall(frame)
-		if err != nil {
-			if !errors.Is(err, ocpp16json.ErrPayloadDecode) {
-				t.Fatalf("unexpected DecodeCall error: %v", err)
-			}
-
-			if !errors.Is(err, types.ErrEmptyValue) &&
-				!errors.Is(err, types.ErrInvalidValue) {
-				t.Fatalf("unexpected upstream validation error: %v", err)
-			}
-
-			return
-		}
-
-		payloadValue, ok := decodedFrame.Payload.(authorize.ReqMessage)
-		if !ok {
-			t.Fatalf("unexpected payload type: %T", decodedFrame.Payload)
-		}
-
-		if payloadValue.IdTag.String() != idTag {
-			t.Fatalf(
-				"unexpected idTag after decode: got %q want %q",
-				payloadValue.IdTag.String(),
-				idTag,
-			)
-		}
+		assertAuthorizeDecodeOutcome(t, registry, frame, idTag)
 	})
 }
 
@@ -89,61 +60,156 @@ func FuzzRegistryDecodeHeartbeatCallResult(f *testing.F) {
 			t.Skip()
 		}
 
-		registry := ocpp16json.NewRegistry()
-		err := registry.RegisterConfirmation(
-			"Heartbeat",
-			ocpp16json.JSONDecoder(heartbeat.Conf),
-		)
+		registry, err := heartbeatRegistry()
 		if err != nil {
 			t.Fatalf("RegisterConfirmation: %v", err)
 		}
 
-		payload, err := json.Marshal(
-			map[string]string{"currentTime": currentTime},
-		)
+		frame, err := buildHeartbeatCallResultFrame(currentTime)
 		if err != nil {
-			t.Fatalf("json.Marshal(payload): %v", err)
+			t.Fatalf("buildHeartbeatCallResultFrame: %v", err)
 		}
 
-		frame := append(
-			[]byte(`[3,"uid-1",`),
-			append(payload, []byte(`]`)...)...,
-		)
-
-		decodedFrame, err := registry.DecodeCallResult("Heartbeat", frame)
-		if err != nil {
-			if !errors.Is(err, ocpp16json.ErrPayloadDecode) {
-				t.Fatalf("unexpected DecodeCallResult error: %v", err)
-			}
-
-			if !errors.Is(err, types.ErrEmptyValue) &&
-				!errors.Is(err, types.ErrInvalidValue) {
-				t.Fatalf("unexpected upstream validation error: %v", err)
-			}
-
-			return
-		}
-
-		payloadValue, ok := decodedFrame.Payload.(heartbeat.ConfMessage)
-		if !ok {
-			t.Fatalf("unexpected payload type: %T", decodedFrame.Payload)
-		}
-
-		currentTimeString := payloadValue.CurrentTime.String()
-		if !strings.HasSuffix(currentTimeString, "Z") {
-			t.Fatalf("decoded currentTime is not UTC: %q", currentTimeString)
-		}
-
-		parsedTime, err := time.Parse(time.RFC3339Nano, currentTimeString)
-		if err != nil {
-			t.Fatalf("decoded currentTime is not RFC3339: %v", err)
-		}
-
-		if parsedTime.Location() != time.UTC {
-			t.Fatalf(
-				"decoded currentTime does not use UTC location: %q",
-				currentTimeString,
-			)
-		}
+		assertHeartbeatDecodeOutcome(t, registry, frame)
 	})
+}
+
+func authorizeRegistry() (*ocpp16json.Registry, error) {
+	registry := ocpp16json.NewRegistry()
+
+	err := registry.RegisterRequest(
+		fuzzAuthorizeAction,
+		ocpp16json.JSONDecoder(authorize.Req),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("RegisterRequest: %w", err)
+	}
+
+	return registry, nil
+}
+
+func heartbeatRegistry() (*ocpp16json.Registry, error) {
+	registry := ocpp16json.NewRegistry()
+
+	err := registry.RegisterConfirmation(
+		fuzzHeartbeatAction,
+		ocpp16json.JSONDecoder(heartbeat.Conf),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("RegisterConfirmation: %w", err)
+	}
+
+	return registry, nil
+}
+
+func buildAuthorizeCallFrame(idTag string) ([]byte, error) {
+	payload, err := json.Marshal(map[string]string{"idTag": idTag})
+	if err != nil {
+		return nil, fmt.Errorf("json.Marshal(authorize payload): %w", err)
+	}
+
+	return append(
+		[]byte(`[2,"uid-1","Authorize",`),
+		append(payload, []byte(`]`)...)...,
+	), nil
+}
+
+func buildHeartbeatCallResultFrame(currentTime string) ([]byte, error) {
+	payload, err := json.Marshal(map[string]string{"currentTime": currentTime})
+	if err != nil {
+		return nil, fmt.Errorf("json.Marshal(heartbeat payload): %w", err)
+	}
+
+	return append(
+		[]byte(`[3,"uid-1",`),
+		append(payload, []byte(`]`)...)...,
+	), nil
+}
+
+func assertAuthorizeDecodeOutcome(
+	t *testing.T,
+	registry *ocpp16json.Registry,
+	frame []byte,
+	idTag string,
+) {
+	t.Helper()
+
+	decodedFrame, err := registry.DecodeCall(frame)
+	if err != nil {
+		assertPayloadDecodeValidationError(t, "DecodeCall", err)
+
+		return
+	}
+
+	payloadValue, ok := decodedFrame.Payload.(authorize.ReqMessage)
+	if !ok {
+		t.Fatalf("unexpected payload type: %T", decodedFrame.Payload)
+	}
+
+	if payloadValue.IdTag.String() != idTag {
+		t.Fatalf(
+			"unexpected idTag after decode: got %q want %q",
+			payloadValue.IdTag.String(),
+			idTag,
+		)
+	}
+}
+
+func assertHeartbeatDecodeOutcome(
+	t *testing.T,
+	registry *ocpp16json.Registry,
+	frame []byte,
+) {
+	t.Helper()
+
+	decodedFrame, err := registry.DecodeCallResult(fuzzHeartbeatAction, frame)
+	if err != nil {
+		assertPayloadDecodeValidationError(t, "DecodeCallResult", err)
+
+		return
+	}
+
+	payloadValue, ok := decodedFrame.Payload.(heartbeat.ConfMessage)
+	if !ok {
+		t.Fatalf("unexpected payload type: %T", decodedFrame.Payload)
+	}
+
+	assertHeartbeatTimeInvariant(t, payloadValue.CurrentTime.String())
+}
+
+func assertPayloadDecodeValidationError(
+	t *testing.T,
+	method string,
+	err error,
+) {
+	t.Helper()
+
+	if !errors.Is(err, ocpp16json.ErrPayloadDecode) {
+		t.Fatalf("unexpected %s error: %v", method, err)
+	}
+
+	if !errors.Is(err, types.ErrEmptyValue) &&
+		!errors.Is(err, types.ErrInvalidValue) {
+		t.Fatalf("unexpected upstream validation error: %v", err)
+	}
+}
+
+func assertHeartbeatTimeInvariant(t *testing.T, currentTimeString string) {
+	t.Helper()
+
+	if !strings.HasSuffix(currentTimeString, "Z") {
+		t.Fatalf("decoded currentTime is not UTC: %q", currentTimeString)
+	}
+
+	parsedTime, err := time.Parse(time.RFC3339Nano, currentTimeString)
+	if err != nil {
+		t.Fatalf("decoded currentTime is not RFC3339: %v", err)
+	}
+
+	if parsedTime.Location() != time.UTC {
+		t.Fatalf(
+			"decoded currentTime does not use UTC location: %q",
+			currentTimeString,
+		)
+	}
 }

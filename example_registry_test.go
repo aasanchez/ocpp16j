@@ -11,6 +11,13 @@ import (
 	"github.com/aasanchez/ocpp16messages/types"
 )
 
+const (
+	authorizeAction = "Authorize"
+	heartbeatAction = "Heartbeat"
+)
+
+var errUnexpectedPayloadType = errors.New("unexpected payload type")
+
 type authorizeConfWirePayload struct {
 	IdTagInfo authorizeConfWireInfo `json:"idTagInfo"`
 }
@@ -24,8 +31,9 @@ type authorizeConfWireInfo struct {
 // logic, validate the confirmation payload, and wrap it back into CALLRESULT.
 func ExampleRegistry_authorizeFlow() {
 	registry := ocpp16json.NewRegistry()
+
 	err := registry.RegisterRequest(
-		"Authorize",
+		authorizeAction,
 		ocpp16json.JSONDecoder(authorize.Req),
 	)
 	if err != nil {
@@ -34,51 +42,14 @@ func ExampleRegistry_authorizeFlow() {
 		return
 	}
 
-	decoded, err := registry.DecodeCall(
-		[]byte(`[2,"uid-1","Authorize",{"idTag":"RFID-123"}]`),
-	)
+	decoded, request, err := decodeAuthorizeCall(registry)
 	if err != nil {
 		fmt.Println(err)
 
 		return
 	}
 
-	request, ok := decoded.Payload.(authorize.ReqMessage)
-	if !ok {
-		fmt.Println("unexpected payload type")
-
-		return
-	}
-
-	status := authorizeStatusFor(request.IdTag.String())
-	confInput := authorize.ConfInput{
-		Status:      status,
-		ExpiryDate:  nil,
-		ParentIdTag: nil,
-	}
-
-	_, err = authorize.Conf(confInput)
-	if err != nil {
-		fmt.Println(err)
-
-		return
-	}
-
-	payload, err := json.Marshal(authorizeConfWirePayload{
-		IdTagInfo: authorizeConfWireInfo{
-			Status: confInput.Status,
-		},
-	})
-	if err != nil {
-		fmt.Println(err)
-
-		return
-	}
-
-	response, err := json.Marshal(ocpp16json.RawCallResult{
-		UniqueID: decoded.UniqueID,
-		Payload:  payload,
-	})
+	response, err := buildAuthorizeResponse(decoded.UniqueID, request)
 	if err != nil {
 		fmt.Println(err)
 
@@ -98,8 +69,9 @@ func ExampleRegistry_authorizeFlow() {
 // CALL payload that is structurally valid JSON but fails OCPP field limits.
 func ExampleRegistry_authorizeValidationError() {
 	registry := ocpp16json.NewRegistry()
+
 	err := registry.RegisterRequest(
-		"Authorize",
+		authorizeAction,
 		ocpp16json.JSONDecoder(authorize.Req),
 	)
 	if err != nil {
@@ -122,14 +94,6 @@ func ExampleRegistry_authorizeValidationError() {
 	// Output:
 	// true
 	// true
-}
-
-func authorizeStatusFor(idTag string) string {
-	if idTag == "RFID-BLOCKED" {
-		return "Blocked"
-	}
-
-	return "Accepted"
 }
 
 // ExampleParse_rawCall demonstrates parsing a raw OCPP-J CALL frame before any
@@ -165,8 +129,9 @@ func ExampleParse_rawCall() {
 // the response frame.
 func ExampleRegistry_decodeCallResult() {
 	registry := ocpp16json.NewRegistry()
+
 	err := registry.RegisterConfirmation(
-		"Heartbeat",
+		heartbeatAction,
 		ocpp16json.JSONDecoder(heartbeat.Conf),
 	)
 	if err != nil {
@@ -176,7 +141,7 @@ func ExampleRegistry_decodeCallResult() {
 	}
 
 	decoded, err := registry.DecodeCallResult(
-		"Heartbeat",
+		heartbeatAction,
 		[]byte(`[3,"uid-2",{"currentTime":"2025-01-02T15:04:05Z"}]`),
 	)
 	if err != nil {
@@ -218,7 +183,13 @@ func ExampleParse_callError() {
 		return
 	}
 
-	callError := frame.(ocpp16json.CallError)
+	callError, ok := frame.(ocpp16json.CallError)
+	if !ok {
+		fmt.Println("unexpected frame type")
+
+		return
+	}
+
 	fmt.Println(callError.ErrorCode)
 	fmt.Println(callError.ErrorDescription)
 	fmt.Println(callError.ErrorDetails["field"])
@@ -226,4 +197,69 @@ func ExampleParse_callError() {
 	// ProtocolError
 	// invalid field
 	// idTag
+}
+
+func authorizeStatusFor(idTag string) string {
+	if idTag == "RFID-BLOCKED" {
+		return "Blocked"
+	}
+
+	return "Accepted"
+}
+
+func decodeAuthorizeCall(
+	registry *ocpp16json.Registry,
+) (ocpp16json.DecodedCall, authorize.ReqMessage, error) {
+	decoded, err := registry.DecodeCall(
+		[]byte(`[2,"uid-1","Authorize",{"idTag":"RFID-123"}]`),
+	)
+	if err != nil {
+		return ocpp16json.DecodedCall{}, authorize.ReqMessage{}, fmt.Errorf(
+			"DecodeCall: %w",
+			err,
+		)
+	}
+
+	request, ok := decoded.Payload.(authorize.ReqMessage)
+	if !ok {
+		return ocpp16json.DecodedCall{}, authorize.ReqMessage{}, fmt.Errorf(
+			"decoded payload: %w",
+			errUnexpectedPayloadType,
+		)
+	}
+
+	return decoded, request, nil
+}
+
+func buildAuthorizeResponse(
+	uniqueID string,
+	request authorize.ReqMessage,
+) ([]byte, error) {
+	confInput := authorize.ConfInput{
+		Status:      authorizeStatusFor(request.IdTag.String()),
+		ExpiryDate:  nil,
+		ParentIdTag: nil,
+	}
+
+	_, err := authorize.Conf(confInput)
+	if err != nil {
+		return nil, fmt.Errorf("authorize.Conf: %w", err)
+	}
+
+	payload, err := json.Marshal(authorizeConfWirePayload{
+		IdTagInfo: authorizeConfWireInfo{Status: confInput.Status},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("json.Marshal(payload): %w", err)
+	}
+
+	response, err := json.Marshal(ocpp16json.RawCallResult{
+		UniqueID: uniqueID,
+		Payload:  payload,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("json.Marshal(callResult): %w", err)
+	}
+
+	return response, nil
 }

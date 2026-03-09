@@ -33,6 +33,8 @@ const (
 )
 
 // Frame is the common interface implemented by parsed OCPP-J frames.
+//
+// Both raw and decoded transport values satisfy this interface.
 type Frame interface {
 	MessageType() MessageType
 	MessageID() string
@@ -40,37 +42,52 @@ type Frame interface {
 
 // RawCall is a parsed OCPP-J CALL frame.
 type RawCall struct {
+	// UniqueID is the OCPP message correlation identifier.
 	UniqueID string
-	Action   string
-	Payload  json.RawMessage
+	// Action is the OCPP action name carried by the request frame.
+	Action string
+	// Payload is the raw JSON payload object.
+	Payload json.RawMessage
 }
 
 // RawCallResult is a parsed OCPP-J CALLRESULT frame.
 type RawCallResult struct {
+	// UniqueID is the OCPP message correlation identifier.
 	UniqueID string
-	Payload  json.RawMessage
+	// Payload is the raw JSON payload object.
+	Payload json.RawMessage
 }
 
 // CallError is a parsed OCPP-J CALLERROR frame.
 type CallError struct {
-	UniqueID         string
-	ErrorCode        string
+	// UniqueID is the OCPP message correlation identifier.
+	UniqueID string
+	// ErrorCode is the OCPP error code string.
+	ErrorCode string
+	// ErrorDescription is the human-readable error text.
 	ErrorDescription string
-	ErrorDetails     map[string]any
+	// ErrorDetails is the structured error details object.
+	ErrorDetails map[string]any
 }
 
 // DecodedCall is a CALL frame with a decoded payload.
 type DecodedCall struct {
+	// UniqueID is the OCPP message correlation identifier.
 	UniqueID string
-	Action   string
-	Payload  any
+	// Action is the OCPP action name carried by the request frame.
+	Action string
+	// Payload is the typed value returned by a registered decoder.
+	Payload any
 }
 
 // DecodedCallResult is a CALLRESULT frame with a decoded payload.
 type DecodedCallResult struct {
+	// UniqueID is the OCPP message correlation identifier.
 	UniqueID string
-	Action   string
-	Payload  any
+	// Action is the caller-provided action context for the response frame.
+	Action string
+	// Payload is the typed value returned by a registered decoder.
+	Payload any
 }
 
 // MessageType returns the OCPP-J frame type.
@@ -134,6 +151,9 @@ func (decodedCallResult DecodedCallResult) MessageID() string {
 }
 
 // Parse validates a raw OCPP-J frame and returns a typed raw frame.
+//
+// Depending on the incoming message type, the returned value is RawCall,
+// RawCallResult, or CallError.
 func Parse(data []byte) (Frame, error) {
 	var elements []json.RawMessage
 
@@ -404,6 +424,9 @@ func marshalJSONArray(values ...any) ([]byte, error) {
 }
 
 // DecodePayload unmarshals a raw payload into the requested Go type.
+//
+// It performs JSON decoding only. Domain-specific validation should still be
+// handled by higher-level constructors when required.
 func DecodePayload[T any](raw json.RawMessage) (T, error) {
 	var payload T
 
@@ -435,6 +458,8 @@ func IsCallError(frame Frame) bool {
 }
 
 // AsRawCall extracts a RawCall from frame.
+//
+// It returns an error when frame is not a RawCall value.
 func AsRawCall(frame Frame) (RawCall, error) {
 	call, ok := frame.(RawCall)
 	if !ok {
