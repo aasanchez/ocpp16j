@@ -45,7 +45,7 @@ That keeps the transport layer correct without inventing session behavior.
 ## Installation
 
 ```bash
-go get github.com/aasanchez/ocpp16json
+go get github.com/aasanchez/ocpp16j
 ```
 
 ## Usage
@@ -54,25 +54,25 @@ go get github.com/aasanchez/ocpp16json
 package main
 
 import (
-	"fmt"
+    "fmt"
 
-	"github.com/aasanchez/ocpp16json"
-	"github.com/aasanchez/ocpp16messages/authorize"
+    "github.com/aasanchez/ocpp16j"
+    "github.com/aasanchez/ocpp16messages/authorize"
 )
 
 func main() {
-	registry := ocpp16json.NewRegistry()
-	_ = registry.RegisterRequest("Authorize", ocpp16json.JSONDecoder(authorize.Req))
+    registry := ocpp16j.NewRegistry()
+    _ = registry.RegisterRequest("Authorize", ocpp16j.JSONDecoder(authorize.Req))
 
-	frame, err := registry.DecodeCall(
-		[]byte(`[2,"uid-1","Authorize",{"idTag":"RFID-123"}]`),
-	)
-	if err != nil {
-		panic(err)
-	}
+    frame, err := registry.DecodeCall(
+        []byte(`[2,"uid-1","Authorize",{"idTag":"RFID-123"}]`),
+    )
+    if err != nil {
+        panic(err)
+    }
 
-	req := frame.Payload.(authorize.ReqMessage)
-	fmt.Println(frame.Action, req.IdTag.String())
+    req := frame.Payload.(authorize.ReqMessage)
+    fmt.Println(frame.Action, req.IdTag.String())
 }
 ```
 
