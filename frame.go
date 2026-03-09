@@ -3,40 +3,55 @@ package ocpp16json
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 )
 
 const (
-	callFrameLength       = 4
-	callResultFrameLength = 3
-	callErrorFrameLength  = 5
+	callFrameLength        = 4
+	callResultFrameLength  = 3
+	callErrorFrameLength   = 5
+	callActionIndex        = 2
+	callPayloadIndex       = 3
+	callResultPayloadIndex = 2
+	callErrorDetailsIndex  = 4
+	emptyLength            = 0
+	emptyString            = ""
+	invalidTypeCode        = 0
+	errorWrapFormat        = "%w: %w"
 )
 
+// MessageType identifies the OCPP-J frame kind.
 type MessageType uint8
 
 const (
-	MessageTypeCall       MessageType = 2
+	// MessageTypeCall identifies a CALL request frame.
+	MessageTypeCall MessageType = 2
+	// MessageTypeCallResult identifies a CALLRESULT response frame.
 	MessageTypeCallResult MessageType = 3
-	MessageTypeCallError  MessageType = 4
+	// MessageTypeCallError identifies a CALLERROR response frame.
+	MessageTypeCallError MessageType = 4
 )
 
+// Frame is the common interface implemented by parsed OCPP-J frames.
 type Frame interface {
 	MessageType() MessageType
 	MessageID() string
 }
 
+// RawCall is a parsed OCPP-J CALL frame.
 type RawCall struct {
 	UniqueID string
 	Action   string
 	Payload  json.RawMessage
 }
 
+// RawCallResult is a parsed OCPP-J CALLRESULT frame.
 type RawCallResult struct {
 	UniqueID string
 	Payload  json.RawMessage
 }
 
+// CallError is a parsed OCPP-J CALLERROR frame.
 type CallError struct {
 	UniqueID         string
 	ErrorCode        string
@@ -44,43 +59,90 @@ type CallError struct {
 	ErrorDetails     map[string]any
 }
 
+// DecodedCall is a CALL frame with a decoded payload.
 type DecodedCall struct {
 	UniqueID string
 	Action   string
 	Payload  any
 }
 
+// DecodedCallResult is a CALLRESULT frame with a decoded payload.
 type DecodedCallResult struct {
 	UniqueID string
 	Action   string
 	Payload  any
 }
 
-func (f RawCall) MessageType() MessageType { return MessageTypeCall }
-func (f RawCall) MessageID() string        { return f.UniqueID }
-func (f RawCallResult) MessageType() MessageType {
+// MessageType returns the OCPP-J frame type.
+func (rawCall RawCall) MessageType() MessageType {
+	_ = rawCall
+
+	return MessageTypeCall
+}
+
+// MessageID returns the unique message ID.
+func (rawCall RawCall) MessageID() string {
+	return rawCall.UniqueID
+}
+
+// MessageType returns the OCPP-J frame type.
+func (rawCallResult RawCallResult) MessageType() MessageType {
+	_ = rawCallResult
+
 	return MessageTypeCallResult
 }
-func (f RawCallResult) MessageID() string { return f.UniqueID }
-func (f CallError) MessageType() MessageType {
+
+// MessageID returns the unique message ID.
+func (rawCallResult RawCallResult) MessageID() string {
+	return rawCallResult.UniqueID
+}
+
+// MessageType returns the OCPP-J frame type.
+func (callError CallError) MessageType() MessageType {
+	_ = callError
+
 	return MessageTypeCallError
 }
-func (f CallError) MessageID() string          { return f.UniqueID }
-func (f DecodedCall) MessageType() MessageType { return MessageTypeCall }
-func (f DecodedCall) MessageID() string        { return f.UniqueID }
-func (f DecodedCallResult) MessageType() MessageType {
+
+// MessageID returns the unique message ID.
+func (callError CallError) MessageID() string {
+	return callError.UniqueID
+}
+
+// MessageType returns the OCPP-J frame type.
+func (decodedCall DecodedCall) MessageType() MessageType {
+	_ = decodedCall
+
+	return MessageTypeCall
+}
+
+// MessageID returns the unique message ID.
+func (decodedCall DecodedCall) MessageID() string {
+	return decodedCall.UniqueID
+}
+
+// MessageType returns the OCPP-J frame type.
+func (decodedCallResult DecodedCallResult) MessageType() MessageType {
+	_ = decodedCallResult
+
 	return MessageTypeCallResult
 }
-func (f DecodedCallResult) MessageID() string { return f.UniqueID }
 
+// MessageID returns the unique message ID.
+func (decodedCallResult DecodedCallResult) MessageID() string {
+	return decodedCallResult.UniqueID
+}
+
+// Parse validates a raw OCPP-J frame and returns a typed raw frame.
 func Parse(data []byte) (Frame, error) {
 	var elements []json.RawMessage
 
-	if err := json.Unmarshal(data, &elements); err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidFrame, err)
+	err := json.Unmarshal(data, &elements)
+	if err != nil {
+		return nil, fmt.Errorf(errorWrapFormat, ErrInvalidFrame, err)
 	}
 
-	if len(elements) == 0 {
+	if len(elements) == emptyLength {
 		return nil, ErrInvalidFrame
 	}
 
@@ -94,71 +156,81 @@ func Parse(data []byte) (Frame, error) {
 		return parseCall(elements)
 	case MessageTypeCallResult:
 		return parseCallResult(elements)
+	case MessageTypeCallError:
+		return parseCallError(elements)
 	}
 
-	return parseCallError(elements)
+	return nil, fmt.Errorf("%w: %d", ErrUnsupportedFrameType, messageType)
 }
 
-func (f RawCall) MarshalJSON() ([]byte, error) {
-	if err := validateMessageID(f.UniqueID); err != nil {
+// MarshalJSON renders the CALL frame as an OCPP-J array.
+func (rawCall RawCall) MarshalJSON() ([]byte, error) {
+	err := validateMessageID(rawCall.UniqueID)
+	if err != nil {
 		return nil, err
 	}
 
-	if err := validateAction(f.Action); err != nil {
+	err = validateAction(rawCall.Action)
+	if err != nil {
 		return nil, err
 	}
 
-	if len(bytes.TrimSpace(f.Payload)) == 0 {
+	if len(bytes.TrimSpace(rawCall.Payload)) == emptyLength {
 		return nil, ErrPayloadRequired
 	}
 
 	return marshalJSONArray(
 		MessageTypeCall,
-		f.UniqueID,
-		f.Action,
-		json.RawMessage(f.Payload),
+		rawCall.UniqueID,
+		rawCall.Action,
+		rawCall.Payload,
 	)
 }
 
-func (f RawCallResult) MarshalJSON() ([]byte, error) {
-	if err := validateMessageID(f.UniqueID); err != nil {
+// MarshalJSON renders the CALLRESULT frame as an OCPP-J array.
+func (rawCallResult RawCallResult) MarshalJSON() ([]byte, error) {
+	err := validateMessageID(rawCallResult.UniqueID)
+	if err != nil {
 		return nil, err
 	}
 
-	if len(bytes.TrimSpace(f.Payload)) == 0 {
+	if len(bytes.TrimSpace(rawCallResult.Payload)) == emptyLength {
 		return nil, ErrPayloadRequired
 	}
 
 	return marshalJSONArray(
 		MessageTypeCallResult,
-		f.UniqueID,
-		json.RawMessage(f.Payload),
+		rawCallResult.UniqueID,
+		rawCallResult.Payload,
 	)
 }
 
-func (f CallError) MarshalJSON() ([]byte, error) {
-	if err := validateMessageID(f.UniqueID); err != nil {
+// MarshalJSON renders the CALLERROR frame as an OCPP-J array.
+func (callError CallError) MarshalJSON() ([]byte, error) {
+	err := validateMessageID(callError.UniqueID)
+	if err != nil {
 		return nil, err
 	}
 
-	if f.ErrorCode == "" {
+	if callError.ErrorCode == emptyString {
 		return nil, ErrErrorCodeRequired
 	}
 
-	if f.ErrorDescription == "" {
+	if callError.ErrorDescription == emptyString {
 		return nil, ErrErrorDescriptionAbsent
 	}
 
-	if f.ErrorDetails == nil {
-		f.ErrorDetails = map[string]any{}
+	errorDetails := callError.ErrorDetails
+	if errorDetails == nil {
+		errorDetails = map[string]any{}
 	}
 
 	return marshalJSONArray(
 		MessageTypeCallError,
-		f.UniqueID,
-		f.ErrorCode,
-		f.ErrorDescription,
-		f.ErrorDetails,
+		callError.UniqueID,
+		callError.ErrorCode,
+		callError.ErrorDescription,
+		errorDetails,
 	)
 }
 
@@ -171,24 +243,24 @@ func parseCall(elements []json.RawMessage) (RawCall, error) {
 		)
 	}
 
-	id, err := decodeString(elements[1], ErrInvalidMessageID)
+	uniqueID, err := decodeString(elements[1], ErrInvalidMessageID)
 	if err != nil {
 		return RawCall{}, err
 	}
 
-	action, err := decodeString(elements[2], ErrInvalidAction)
+	action, err := decodeString(elements[callActionIndex], ErrInvalidAction)
 	if err != nil {
 		return RawCall{}, err
 	}
 
-	if len(bytes.TrimSpace(elements[3])) == 0 {
+	if len(bytes.TrimSpace(elements[callPayloadIndex])) == emptyLength {
 		return RawCall{}, ErrPayloadRequired
 	}
 
 	return RawCall{
-		UniqueID: id,
+		UniqueID: uniqueID,
 		Action:   action,
-		Payload:  elements[3],
+		Payload:  elements[callPayloadIndex],
 	}, nil
 }
 
@@ -201,18 +273,18 @@ func parseCallResult(elements []json.RawMessage) (RawCallResult, error) {
 		)
 	}
 
-	id, err := decodeString(elements[1], ErrInvalidMessageID)
+	uniqueID, err := decodeString(elements[1], ErrInvalidMessageID)
 	if err != nil {
 		return RawCallResult{}, err
 	}
 
-	if len(bytes.TrimSpace(elements[2])) == 0 {
+	if len(bytes.TrimSpace(elements[callResultPayloadIndex])) == emptyLength {
 		return RawCallResult{}, ErrPayloadRequired
 	}
 
 	return RawCallResult{
-		UniqueID: id,
-		Payload:  elements[2],
+		UniqueID: uniqueID,
+		Payload:  elements[callResultPayloadIndex],
 	}, nil
 }
 
@@ -225,7 +297,7 @@ func parseCallError(elements []json.RawMessage) (CallError, error) {
 		)
 	}
 
-	id, err := decodeString(elements[1], ErrInvalidMessageID)
+	uniqueID, err := decodeString(elements[1], ErrInvalidMessageID)
 	if err != nil {
 		return CallError{}, err
 	}
@@ -235,14 +307,23 @@ func parseCallError(elements []json.RawMessage) (CallError, error) {
 		return CallError{}, err
 	}
 
-	errorDescription, err := decodeString(elements[3], ErrErrorDescriptionAbsent)
+	errorDescription, err := decodeString(
+		elements[3],
+		ErrErrorDescriptionAbsent,
+	)
 	if err != nil {
 		return CallError{}, err
 	}
 
 	var details map[string]any
-	if err := json.Unmarshal(elements[4], &details); err != nil {
-		return CallError{}, fmt.Errorf("%w: %w", ErrErrorDetailsInvalid, err)
+
+	err = json.Unmarshal(elements[callErrorDetailsIndex], &details)
+	if err != nil {
+		return CallError{}, fmt.Errorf(
+			errorWrapFormat,
+			ErrErrorDetailsInvalid,
+			err,
+		)
 	}
 
 	if details == nil {
@@ -250,7 +331,7 @@ func parseCallError(elements []json.RawMessage) (CallError, error) {
 	}
 
 	return CallError{
-		UniqueID:         id,
+		UniqueID:         uniqueID,
 		ErrorCode:        errorCode,
 		ErrorDescription: errorDescription,
 		ErrorDetails:     details,
@@ -260,8 +341,13 @@ func parseCallError(elements []json.RawMessage) (CallError, error) {
 func decodeMessageType(raw json.RawMessage) (MessageType, error) {
 	var code uint8
 
-	if err := json.Unmarshal(raw, &code); err != nil {
-		return 0, fmt.Errorf("%w: %w", ErrInvalidFrame, err)
+	err := json.Unmarshal(raw, &code)
+	if err != nil {
+		return invalidTypeCode, fmt.Errorf(
+			errorWrapFormat,
+			ErrInvalidFrame,
+			err,
+		)
 	}
 
 	messageType := MessageType(code)
@@ -269,26 +355,31 @@ func decodeMessageType(raw json.RawMessage) (MessageType, error) {
 	case MessageTypeCall, MessageTypeCallResult, MessageTypeCallError:
 		return messageType, nil
 	default:
-		return 0, fmt.Errorf("%w: %d", ErrUnsupportedFrameType, code)
+		return invalidTypeCode, fmt.Errorf(
+			"%w: %d",
+			ErrUnsupportedFrameType,
+			code,
+		)
 	}
 }
 
 func decodeString(raw json.RawMessage, sentinel error) (string, error) {
 	var value string
 
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return "", fmt.Errorf("%w: %w", sentinel, err)
+	err := json.Unmarshal(raw, &value)
+	if err != nil {
+		return emptyString, fmt.Errorf(errorWrapFormat, sentinel, err)
 	}
 
-	if value == "" {
-		return "", sentinel
+	if value == emptyString {
+		return emptyString, sentinel
 	}
 
 	return value, nil
 }
 
 func validateMessageID(id string) error {
-	if id == "" {
+	if id == emptyString {
 		return ErrInvalidMessageID
 	}
 
@@ -296,7 +387,7 @@ func validateMessageID(id string) error {
 }
 
 func validateAction(action string) error {
-	if action == "" {
+	if action == emptyString {
 		return ErrInvalidAction
 	}
 
@@ -306,42 +397,48 @@ func validateAction(action string) error {
 func marshalJSONArray(values ...any) ([]byte, error) {
 	data, err := json.Marshal(values)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidFrame, err)
+		return nil, fmt.Errorf(errorWrapFormat, ErrInvalidFrame, err)
 	}
 
 	return data, nil
 }
 
+// DecodePayload unmarshals a raw payload into the requested Go type.
 func DecodePayload[T any](raw json.RawMessage) (T, error) {
 	var payload T
 
-	if len(bytes.TrimSpace(raw)) == 0 {
+	if len(bytes.TrimSpace(raw)) == emptyLength {
 		return payload, ErrPayloadRequired
 	}
 
-	if err := json.Unmarshal(raw, &payload); err != nil {
-		return payload, fmt.Errorf("%w: %w", ErrPayloadDecode, err)
+	err := json.Unmarshal(raw, &payload)
+	if err != nil {
+		return payload, fmt.Errorf(errorWrapFormat, ErrPayloadDecode, err)
 	}
 
 	return payload, nil
 }
 
+// IsCall reports whether frame is a CALL.
 func IsCall(frame Frame) bool {
 	return frame != nil && frame.MessageType() == MessageTypeCall
 }
 
+// IsCallResult reports whether frame is a CALLRESULT.
 func IsCallResult(frame Frame) bool {
 	return frame != nil && frame.MessageType() == MessageTypeCallResult
 }
 
+// IsCallError reports whether frame is a CALLERROR.
 func IsCallError(frame Frame) bool {
 	return frame != nil && frame.MessageType() == MessageTypeCallError
 }
 
+// AsRawCall extracts a RawCall from frame.
 func AsRawCall(frame Frame) (RawCall, error) {
 	call, ok := frame.(RawCall)
 	if !ok {
-		return RawCall{}, errors.New("frame is not a raw call")
+		return RawCall{}, errFrameNotRawCall
 	}
 
 	return call, nil

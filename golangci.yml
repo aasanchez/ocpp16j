@@ -12,6 +12,7 @@ linters:
     - wsl
     - testpackage
     - godot
+    - ireturn
   enable:
     - wsl_v5
   settings:
@@ -23,6 +24,8 @@ linters:
       enable-all-rules: true
       rules:
         - name: package-directory-mismatch
+          disabled: true
+        - name: max-public-structs
           disabled: true
         - name: var-naming
           arguments:
@@ -37,6 +40,7 @@ linters:
         main:
           allow:
             - $gostd
+            - github.com/aasanchez/ocpp16j
             - github.com/aasanchez/ocpp16messages
 
 output:

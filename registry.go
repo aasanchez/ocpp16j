@@ -6,25 +6,34 @@ import (
 	"sync"
 )
 
+// PayloadDecoder converts a raw payload into a validated typed value.
 type PayloadDecoder func(json.RawMessage) (any, error)
 
+// Registry stores request and confirmation payload decoders by action name.
 type Registry struct {
 	mu            sync.RWMutex
 	requests      map[string]PayloadDecoder
 	confirmations map[string]PayloadDecoder
 }
 
+// NewRegistry creates an empty action registry.
 func NewRegistry() *Registry {
 	return &Registry{
+		mu:            sync.RWMutex{},
 		requests:      make(map[string]PayloadDecoder),
 		confirmations: make(map[string]PayloadDecoder),
 	}
 }
 
-func (r *Registry) RegisterRequest(action string, decoder PayloadDecoder) error {
+// RegisterRequest registers a decoder for a CALL action.
+func (r *Registry) RegisterRequest(
+	action string,
+	decoder PayloadDecoder,
+) error {
 	return r.register(action, decoder, r.requests)
 }
 
+// RegisterConfirmation registers a decoder for a CALLRESULT action.
 func (r *Registry) RegisterConfirmation(
 	action string,
 	decoder PayloadDecoder,
@@ -32,6 +41,7 @@ func (r *Registry) RegisterConfirmation(
 	return r.register(action, decoder, r.confirmations)
 }
 
+// DecodeCall parses and decodes a CALL frame.
 func (r *Registry) DecodeCall(data []byte) (DecodedCall, error) {
 	frame, err := Parse(data)
 	if err != nil {
@@ -55,8 +65,13 @@ func (r *Registry) DecodeCall(data []byte) (DecodedCall, error) {
 	}, nil
 }
 
-func (r *Registry) DecodeCallResult(action string, data []byte) (DecodedCallResult, error) {
-	if err := validateAction(action); err != nil {
+// DecodeCallResult parses and decodes a CALLRESULT frame.
+func (r *Registry) DecodeCallResult(
+	action string,
+	data []byte,
+) (DecodedCallResult, error) {
+	err := validateAction(action)
+	if err != nil {
 		return DecodedCallResult{}, err
 	}
 
@@ -88,8 +103,11 @@ func (r *Registry) decodeRegistered(
 	decoders map[string]PayloadDecoder,
 ) (any, error) {
 	r.mu.RLock()
+
 	decoder, ok := decoders[action]
+
 	r.mu.RUnlock()
+
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", ErrUnknownAction, action)
 	}
@@ -107,7 +125,8 @@ func (r *Registry) register(
 	decoder PayloadDecoder,
 	target map[string]PayloadDecoder,
 ) error {
-	if err := validateAction(action); err != nil {
+	err := validateAction(action)
+	if err != nil {
 		return err
 	}
 

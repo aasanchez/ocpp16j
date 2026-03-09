@@ -50,8 +50,9 @@ test-race: ## Run full test suite with the race detector enabled (race tag optio
 
 ##@ Code Style and Static Analysis
 lint: ## Run static analysis, vetting, and linting using golangci-lint and other tools.
-	@golangci-lint cache clean || true
-	@golangci-lint --config golangci.yml run ./... || true
+	@mkdir -p reports
+	@golangci-lint cache clean
+	@golangci-lint --config golangci.yml run ./...
 	@go vet ./... > reports/govet.json
 	@staticcheck ./... > reports/staticcheck
 	@cat reports/golangci-lint.txt

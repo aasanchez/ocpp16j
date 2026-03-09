@@ -10,12 +10,23 @@ import (
 	"github.com/aasanchez/ocpp16messages/types"
 )
 
+const (
+	testActionHeartbeat     = "Heartbeat"
+	errRegisterRequestFmt   = "RegisterRequest: %v"
+	errNeedPayloadDecodeFmt = "expected ErrPayloadDecode, got %v"
+)
+
 func TestRegistryDecodeCall(t *testing.T) {
 	t.Parallel()
 
 	registry := NewRegistry()
-	if err := registry.RegisterRequest("Authorize", JSONDecoder(authorize.Req)); err != nil {
-		t.Fatalf("RegisterRequest: %v", err)
+
+	err := registry.RegisterRequest(
+		testActionAuthorize,
+		JSONDecoder(authorize.Req),
+	)
+	if err != nil {
+		t.Fatalf(errRegisterRequestFmt, err)
 	}
 
 	frame, err := registry.DecodeCall(
@@ -39,12 +50,17 @@ func TestRegistryDecodeCallResult(t *testing.T) {
 	t.Parallel()
 
 	registry := NewRegistry()
-	if err := registry.RegisterConfirmation("Heartbeat", JSONDecoder(heartbeat.Conf)); err != nil {
+
+	err := registry.RegisterConfirmation(
+		testActionHeartbeat,
+		JSONDecoder(heartbeat.Conf),
+	)
+	if err != nil {
 		t.Fatalf("RegisterConfirmation: %v", err)
 	}
 
 	frame, err := registry.DecodeCallResult(
-		"Heartbeat",
+		testActionHeartbeat,
 		[]byte(`[3,"19223201",{"currentTime":"2025-01-02T15:04:05Z"}]`),
 	)
 	if err != nil {
@@ -65,11 +81,19 @@ func TestRegistryRejectsDuplicateAction(t *testing.T) {
 	t.Parallel()
 
 	registry := NewRegistry()
-	if err := registry.RegisterRequest("Authorize", JSONDecoder(authorize.Req)); err != nil {
-		t.Fatalf("RegisterRequest: %v", err)
+
+	err := registry.RegisterRequest(
+		testActionAuthorize,
+		JSONDecoder(authorize.Req),
+	)
+	if err != nil {
+		t.Fatalf(errRegisterRequestFmt, err)
 	}
 
-	err := registry.RegisterRequest("Authorize", JSONDecoder(authorize.Req))
+	err = registry.RegisterRequest(
+		testActionAuthorize,
+		JSONDecoder(authorize.Req),
+	)
 	if !errors.Is(err, ErrActionAlreadyRegistered) {
 		t.Fatalf("expected ErrActionAlreadyRegistered, got %v", err)
 	}
@@ -79,7 +103,10 @@ func TestRegistryRejectsUnknownAction(t *testing.T) {
 	t.Parallel()
 
 	registry := NewRegistry()
-	_, err := registry.DecodeCall([]byte(`[2,"19223201","Authorize",{"idTag":"RFID-123"}]`))
+
+	_, err := registry.DecodeCall(
+		[]byte(`[2,"19223201","Authorize",{"idTag":"RFID-123"}]`),
+	)
 	if !errors.Is(err, ErrUnknownAction) {
 		t.Fatalf("expected ErrUnknownAction, got %v", err)
 	}
@@ -90,29 +117,53 @@ func TestRegistryValidationBranches(t *testing.T) {
 
 	registry := NewRegistry()
 
-	if _, err := registry.DecodeCall([]byte(`[3,"uid",{}]`)); !errors.Is(err, ErrInvalidFrame) {
-		t.Fatalf("expected ErrInvalidFrame from DecodeCall on CALLRESULT, got %v", err)
+	_, err := registry.DecodeCall([]byte(`[3,"uid",{}]`))
+	if !errors.Is(err, ErrInvalidFrame) {
+		t.Fatalf(
+			"expected ErrInvalidFrame from DecodeCall on CALLRESULT, got %v",
+			err,
+		)
 	}
 
-	if _, err := registry.DecodeCallResult("", []byte(`[3,"uid",{}]`)); !errors.Is(err, ErrInvalidAction) {
+	_, err = registry.DecodeCallResult("", []byte(`[3,"uid",{}]`))
+	if !errors.Is(err, ErrInvalidAction) {
 		t.Fatalf("expected ErrInvalidAction, got %v", err)
 	}
 
-	if _, err := registry.DecodeCallResult("Heartbeat", []byte(`[2,"uid","Heartbeat",{}]`)); !errors.Is(err, ErrInvalidFrame) {
-		t.Fatalf("expected ErrInvalidFrame from DecodeCallResult on CALL, got %v", err)
+	_, err = registry.DecodeCallResult(
+		testActionHeartbeat,
+		[]byte(`[2,"uid","Heartbeat",{}]`),
+	)
+	if !errors.Is(err, ErrInvalidFrame) {
+		t.Fatalf(
+			"expected ErrInvalidFrame from DecodeCallResult on CALL, got %v",
+			err,
+		)
 	}
 
-	if err := registry.RegisterRequest("Authorize", nil); !errors.Is(err, ErrPayloadDecode) {
-		t.Fatalf("expected ErrPayloadDecode for nil request decoder, got %v", err)
+	err = registry.RegisterRequest(testActionAuthorize, nil)
+	if !errors.Is(err, ErrPayloadDecode) {
+		t.Fatalf(
+			"expected ErrPayloadDecode for nil request decoder, got %v",
+			err,
+		)
 	}
 
-	if err := registry.RegisterConfirmation("Heartbeat", nil); !errors.Is(err, ErrPayloadDecode) {
-		t.Fatalf("expected ErrPayloadDecode for nil confirmation decoder, got %v", err)
+	err = registry.RegisterConfirmation(testActionHeartbeat, nil)
+	if !errors.Is(err, ErrPayloadDecode) {
+		t.Fatalf(
+			"expected ErrPayloadDecode for nil confirmation decoder, got %v",
+			err,
+		)
 	}
 
-	if err := registry.RegisterRequest("", JSONDecoder(func(input map[string]string) (map[string]string, error) {
-		return input, nil
-	})); !errors.Is(err, ErrInvalidAction) {
+	err = registry.RegisterRequest(
+		"",
+		JSONDecoder(func(input map[string]string) (map[string]string, error) {
+			return input, nil
+		}),
+	)
+	if !errors.Is(err, ErrInvalidAction) {
 		t.Fatalf("expected ErrInvalidAction for empty action, got %v", err)
 	}
 }
@@ -133,7 +184,7 @@ func TestRegistryDecodeCallResultPropagatesParseFailure(t *testing.T) {
 
 	registry := NewRegistry()
 
-	_, err := registry.DecodeCallResult("Heartbeat", []byte(`{`))
+	_, err := registry.DecodeCallResult(testActionHeartbeat, []byte(`{`))
 	if !errors.Is(err, ErrInvalidFrame) {
 		t.Fatalf("expected ErrInvalidFrame, got %v", err)
 	}
@@ -143,13 +194,21 @@ func TestRegistryDecodeCallResultPropagatesDecoderFailure(t *testing.T) {
 	t.Parallel()
 
 	registry := NewRegistry()
-	if err := registry.RegisterConfirmation("Heartbeat", JSONDecoder(heartbeat.Conf)); err != nil {
+
+	err := registry.RegisterConfirmation(
+		testActionHeartbeat,
+		JSONDecoder(heartbeat.Conf),
+	)
+	if err != nil {
 		t.Fatalf("RegisterConfirmation: %v", err)
 	}
 
-	_, err := registry.DecodeCallResult("Heartbeat", []byte(`[3,"uid-3",{}]`))
+	_, err = registry.DecodeCallResult(
+		testActionHeartbeat,
+		[]byte(`[3,"uid-3",{}]`),
+	)
 	if !errors.Is(err, ErrPayloadDecode) {
-		t.Fatalf("expected ErrPayloadDecode, got %v", err)
+		t.Fatalf(errNeedPayloadDecodeFmt, err)
 	}
 
 	if !errors.Is(err, types.ErrEmptyValue) {
@@ -157,23 +216,30 @@ func TestRegistryDecodeCallResultPropagatesDecoderFailure(t *testing.T) {
 	}
 }
 
-func TestRegistryDecodeCallRejectsAuthorizeIDTagLongerThanCiString20(t *testing.T) {
+func TestRegistryDecodeCallRejectsLongAuthorizeIDTag(t *testing.T) {
 	t.Parallel()
 
 	registry := NewRegistry()
-	if err := registry.RegisterRequest("Authorize", JSONDecoder(authorize.Req)); err != nil {
-		t.Fatalf("RegisterRequest: %v", err)
+
+	err := registry.RegisterRequest(
+		testActionAuthorize,
+		JSONDecoder(authorize.Req),
+	)
+	if err != nil {
+		t.Fatalf(errRegisterRequestFmt, err)
 	}
 
-	_, err := registry.DecodeCall(
-		[]byte(`[2,"19223201","Authorize",{"idTag":"1234567890123456789012345"}]`),
+	_, err = registry.DecodeCall(
+		[]byte(
+			`[2,"19223201","Authorize",{"idTag":"1234567890123456789012345"}]`,
+		),
 	)
 	if err == nil {
 		t.Fatal("expected error")
 	}
 
 	if !errors.Is(err, ErrPayloadDecode) {
-		t.Fatalf("expected ErrPayloadDecode, got %v", err)
+		t.Fatalf(errNeedPayloadDecodeFmt, err)
 	}
 
 	if !errors.Is(err, types.ErrInvalidValue) {
@@ -181,15 +247,20 @@ func TestRegistryDecodeCallRejectsAuthorizeIDTagLongerThanCiString20(t *testing.
 	}
 }
 
-func TestRegistryDecodeCallRejectsAuthorizeIDTagWithWrongJSONType(t *testing.T) {
+func TestRegistryDecodeCallRejectsWrongAuthorizeIDTagType(t *testing.T) {
 	t.Parallel()
 
 	registry := NewRegistry()
-	if err := registry.RegisterRequest("Authorize", JSONDecoder(authorize.Req)); err != nil {
-		t.Fatalf("RegisterRequest: %v", err)
+
+	err := registry.RegisterRequest(
+		testActionAuthorize,
+		JSONDecoder(authorize.Req),
+	)
+	if err != nil {
+		t.Fatalf(errRegisterRequestFmt, err)
 	}
 
-	_, err := registry.DecodeCall(
+	_, err = registry.DecodeCall(
 		[]byte(`[2,"19223201","Authorize",{"idTag":123}]`),
 	)
 	if err == nil {
@@ -197,10 +268,13 @@ func TestRegistryDecodeCallRejectsAuthorizeIDTagWithWrongJSONType(t *testing.T) 
 	}
 
 	if !errors.Is(err, ErrPayloadDecode) {
-		t.Fatalf("expected ErrPayloadDecode, got %v", err)
+		t.Fatalf(errNeedPayloadDecodeFmt, err)
 	}
 
-	if !strings.Contains(err.Error(), "cannot unmarshal number into Go struct field") {
+	if !strings.Contains(
+		err.Error(),
+		"cannot unmarshal number into Go struct field",
+	) {
 		t.Fatalf("expected JSON type error, got %v", err)
 	}
 }

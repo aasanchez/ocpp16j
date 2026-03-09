@@ -7,24 +7,44 @@ import (
 	"testing"
 )
 
+const (
+	testActionAuthorize = "Authorize"
+	testMessageID       = "19223201"
+	testStatusAccepted  = "Accepted"
+	testUID             = "uid"
+	testEmptyJSON       = `{}`
+	testEmptyString     = ""
+	errParseFmt         = "Parse: %v"
+	errFrameTypeFmt     = "unexpected frame type: %T"
+	errMessageTypeFmt   = "unexpected message type: %v"
+	errMessageIDFmt     = "unexpected message id: %q"
+	errMarshalFmt       = "json.Marshal: %v"
+	errNeedInvalidIDFmt = "expected ErrInvalidMessageID, got %v"
+	errNeedInvalidFrm   = "expected ErrInvalidFrame, got %v"
+	errNeedPayloadFmt   = "expected ErrPayloadRequired, got %v"
+	errNeedActionFmt    = "expected ErrInvalidAction, got %v"
+)
+
 func TestParseRawCall(t *testing.T) {
 	t.Parallel()
 
-	frame, err := Parse([]byte(`[2,"19223201","Authorize",{"idTag":"RFID-123"}]`))
+	frame, err := Parse(
+		[]byte(`[2,"19223201","Authorize",{"idTag":"RFID-123"}]`),
+	)
 	if err != nil {
-		t.Fatalf("Parse: %v", err)
+		t.Fatalf(errParseFmt, err)
 	}
 
 	call, ok := frame.(RawCall)
 	if !ok {
-		t.Fatalf("unexpected frame type: %T", frame)
+		t.Fatalf(errFrameTypeFmt, frame)
 	}
 
-	if call.UniqueID != "19223201" {
+	if call.UniqueID != testMessageID {
 		t.Fatalf("unexpected id: %q", call.UniqueID)
 	}
 
-	if call.Action != "Authorize" {
+	if call.Action != testActionAuthorize {
 		t.Fatalf("unexpected action: %q", call.Action)
 	}
 
@@ -36,17 +56,19 @@ func TestParseRawCall(t *testing.T) {
 func TestParseCallResult(t *testing.T) {
 	t.Parallel()
 
-	frame, err := Parse([]byte(`[3,"19223201",{"currentTime":"2025-01-02T15:04:05Z"}]`))
+	frame, err := Parse(
+		[]byte(`[3,"19223201",{"currentTime":"2025-01-02T15:04:05Z"}]`),
+	)
 	if err != nil {
-		t.Fatalf("Parse: %v", err)
+		t.Fatalf(errParseFmt, err)
 	}
 
 	result, ok := frame.(RawCallResult)
 	if !ok {
-		t.Fatalf("unexpected frame type: %T", frame)
+		t.Fatalf(errFrameTypeFmt, frame)
 	}
 
-	if result.UniqueID != "19223201" {
+	if result.UniqueID != testMessageID {
 		t.Fatalf("unexpected id: %q", result.UniqueID)
 	}
 }
@@ -54,14 +76,18 @@ func TestParseCallResult(t *testing.T) {
 func TestParseCallError(t *testing.T) {
 	t.Parallel()
 
-	frame, err := Parse([]byte(`[4,"19223201","ProtocolError","bad payload",{"field":"idTag"}]`))
+	frame, err := Parse(
+		[]byte(
+			`[4,"19223201","ProtocolError","bad payload",{"field":"idTag"}]`,
+		),
+	)
 	if err != nil {
-		t.Fatalf("Parse: %v", err)
+		t.Fatalf(errParseFmt, err)
 	}
 
 	callError, ok := frame.(CallError)
 	if !ok {
-		t.Fatalf("unexpected frame type: %T", frame)
+		t.Fatalf(errFrameTypeFmt, frame)
 	}
 
 	if callError.ErrorCode != "ProtocolError" {
@@ -82,102 +108,170 @@ func TestParseRejectsUnsupportedFrameType(t *testing.T) {
 	}
 }
 
-func TestRawCallMarshalJSON(t *testing.T) {
-	t.Parallel()
-
-	data, err := json.Marshal(RawCall{
-		UniqueID: "19223201",
-		Action:   "Authorize",
-		Payload:  json.RawMessage(`{"idTag":"RFID-123"}`),
-	})
-	if err != nil {
-		t.Fatalf("json.Marshal: %v", err)
-	}
-
-	want := []any{
-		float64(2),
-		"19223201",
-		"Authorize",
-		map[string]any{"idTag": "RFID-123"},
-	}
-
-	assertJSONArrayEqual(t, data, want)
-}
-
-func TestFrameMetadataHelpers(t *testing.T) {
-	t.Parallel()
-
-	call := RawCall{UniqueID: "call-id"}
-	result := RawCallResult{UniqueID: "result-id"}
-	callError := CallError{UniqueID: "error-id"}
-	decodedCall := DecodedCall{UniqueID: "decoded-call-id"}
-	decodedResult := DecodedCallResult{UniqueID: "decoded-result-id"}
-
-	if call.MessageType() != MessageTypeCall || call.MessageID() != "call-id" {
-		t.Fatal("unexpected raw call metadata")
-	}
-
-	if result.MessageType() != MessageTypeCallResult || result.MessageID() != "result-id" {
-		t.Fatal("unexpected raw call result metadata")
-	}
-
-	if callError.MessageType() != MessageTypeCallError || callError.MessageID() != "error-id" {
-		t.Fatal("unexpected call error metadata")
-	}
-
-	if decodedCall.MessageType() != MessageTypeCall || decodedCall.MessageID() != "decoded-call-id" {
-		t.Fatal("unexpected decoded call metadata")
-	}
-
-	if decodedResult.MessageType() != MessageTypeCallResult || decodedResult.MessageID() != "decoded-result-id" {
-		t.Fatal("unexpected decoded call result metadata")
-	}
-}
-
-func TestParseRejectsInvalidJSONAndEmptyArray(t *testing.T) {
+func TestParseRejectsInvalidJSON(t *testing.T) {
 	t.Parallel()
 
 	_, err := Parse([]byte(`{`))
 	if !errors.Is(err, ErrInvalidFrame) {
-		t.Fatalf("expected ErrInvalidFrame, got %v", err)
+		t.Fatalf(errNeedInvalidFrm, err)
 	}
+}
 
-	_, err = Parse([]byte(`[]`))
+func TestParseRejectsEmptyArray(t *testing.T) {
+	t.Parallel()
+
+	_, err := Parse([]byte(`[]`))
 	if !errors.Is(err, ErrInvalidFrame) {
-		t.Fatalf("expected ErrInvalidFrame for empty array, got %v", err)
+		t.Fatalf(errNeedInvalidFrm, err)
 	}
 }
 
-func TestRawCallMarshalJSONValidation(t *testing.T) {
+func TestRawCallMetadata(t *testing.T) {
 	t.Parallel()
 
-	_, err := json.Marshal(RawCall{Action: "Authorize", Payload: json.RawMessage(`{}`)})
-	if !errors.Is(err, ErrInvalidMessageID) {
-		t.Fatalf("expected ErrInvalidMessageID, got %v", err)
+	rawCall := RawCall{
+		UniqueID: "call-id",
+		Action:   testEmptyString,
+		Payload:  nil,
 	}
 
-	_, err = json.Marshal(RawCall{UniqueID: "uid", Payload: json.RawMessage(`{}`)})
+	if rawCall.MessageType() != MessageTypeCall {
+		t.Fatalf(errMessageTypeFmt, rawCall.MessageType())
+	}
+
+	if rawCall.MessageID() != "call-id" {
+		t.Fatalf(errMessageIDFmt, rawCall.MessageID())
+	}
+}
+
+func TestRawCallResultMetadata(t *testing.T) {
+	t.Parallel()
+
+	rawCallResult := RawCallResult{
+		UniqueID: "result-id",
+		Payload:  nil,
+	}
+
+	if rawCallResult.MessageType() != MessageTypeCallResult {
+		t.Fatalf(errMessageTypeFmt, rawCallResult.MessageType())
+	}
+
+	if rawCallResult.MessageID() != "result-id" {
+		t.Fatalf(errMessageIDFmt, rawCallResult.MessageID())
+	}
+}
+
+func TestCallErrorMetadata(t *testing.T) {
+	t.Parallel()
+
+	callError := CallError{
+		UniqueID:         "error-id",
+		ErrorCode:        testEmptyString,
+		ErrorDescription: testEmptyString,
+		ErrorDetails:     nil,
+	}
+
+	if callError.MessageType() != MessageTypeCallError {
+		t.Fatalf(errMessageTypeFmt, callError.MessageType())
+	}
+
+	if callError.MessageID() != "error-id" {
+		t.Fatalf(errMessageIDFmt, callError.MessageID())
+	}
+}
+
+func TestDecodedCallMetadata(t *testing.T) {
+	t.Parallel()
+
+	decodedCall := DecodedCall{
+		UniqueID: "decoded-call-id",
+		Action:   testEmptyString,
+		Payload:  nil,
+	}
+
+	if decodedCall.MessageType() != MessageTypeCall {
+		t.Fatalf(errMessageTypeFmt, decodedCall.MessageType())
+	}
+
+	if decodedCall.MessageID() != "decoded-call-id" {
+		t.Fatalf(errMessageIDFmt, decodedCall.MessageID())
+	}
+}
+
+func TestDecodedCallResultMetadata(t *testing.T) {
+	t.Parallel()
+
+	decodedCallResult := DecodedCallResult{
+		UniqueID: "decoded-result-id",
+		Action:   testEmptyString,
+		Payload:  nil,
+	}
+
+	if decodedCallResult.MessageType() != MessageTypeCallResult {
+		t.Fatalf(errMessageTypeFmt, decodedCallResult.MessageType())
+	}
+
+	if decodedCallResult.MessageID() != "decoded-result-id" {
+		t.Fatalf(errMessageIDFmt, decodedCallResult.MessageID())
+	}
+}
+
+func TestRawCallMarshalJSON(t *testing.T) {
+	t.Parallel()
+
+	data, err := json.Marshal(RawCall{
+		UniqueID: testMessageID,
+		Action:   testActionAuthorize,
+		Payload:  json.RawMessage(`{"idTag":"RFID-123"}`),
+	})
+	if err != nil {
+		t.Fatalf(errMarshalFmt, err)
+	}
+
+	assertJSONArrayEqual(t, data, []any{
+		float64(2),
+		testMessageID,
+		testActionAuthorize,
+		map[string]any{"idTag": "RFID-123"},
+	})
+}
+
+func TestRawCallMarshalJSONRejectsMissingMessageID(t *testing.T) {
+	t.Parallel()
+
+	_, err := json.Marshal(RawCall{
+		UniqueID: "",
+		Action:   testActionAuthorize,
+		Payload:  json.RawMessage(testEmptyJSON),
+	})
+	if !errors.Is(err, ErrInvalidMessageID) {
+		t.Fatalf(errNeedInvalidIDFmt, err)
+	}
+}
+
+func TestRawCallMarshalJSONRejectsMissingAction(t *testing.T) {
+	t.Parallel()
+
+	_, err := json.Marshal(RawCall{
+		UniqueID: "uid",
+		Action:   testEmptyString,
+		Payload:  json.RawMessage(testEmptyJSON),
+	})
 	if !errors.Is(err, ErrInvalidAction) {
-		t.Fatalf("expected ErrInvalidAction, got %v", err)
-	}
-
-	_, err = json.Marshal(RawCall{UniqueID: "uid", Action: "Authorize"})
-	if !errors.Is(err, ErrPayloadRequired) {
-		t.Fatalf("expected ErrPayloadRequired, got %v", err)
+		t.Fatalf(errNeedActionFmt, err)
 	}
 }
 
-func TestRawCallResultMarshalJSONValidation(t *testing.T) {
+func TestRawCallMarshalJSONRejectsMissingPayload(t *testing.T) {
 	t.Parallel()
 
-	_, err := json.Marshal(RawCallResult{})
-	if !errors.Is(err, ErrInvalidMessageID) {
-		t.Fatalf("expected ErrInvalidMessageID, got %v", err)
-	}
-
-	_, err = json.Marshal(RawCallResult{UniqueID: "uid"})
+	_, err := json.Marshal(RawCall{
+		UniqueID: "uid",
+		Action:   testActionAuthorize,
+		Payload:  nil,
+	})
 	if !errors.Is(err, ErrPayloadRequired) {
-		t.Fatalf("expected ErrPayloadRequired, got %v", err)
+		t.Fatalf(errNeedPayloadFmt, err)
 	}
 }
 
@@ -189,59 +283,105 @@ func TestRawCallResultMarshalJSON(t *testing.T) {
 		Payload:  json.RawMessage(`{"status":"Accepted"}`),
 	})
 	if err != nil {
-		t.Fatalf("json.Marshal: %v", err)
+		t.Fatalf(errMarshalFmt, err)
 	}
 
 	assertJSONArrayEqual(t, data, []any{
 		float64(3),
 		"uid",
-		map[string]any{"status": "Accepted"},
+		map[string]any{"status": testStatusAccepted},
 	})
+}
+
+func TestRawCallResultMarshalJSONRejectsMissingMessageID(t *testing.T) {
+	t.Parallel()
+
+	_, err := json.Marshal(RawCallResult{
+		UniqueID: "",
+		Payload:  json.RawMessage(`{}`),
+	})
+	if !errors.Is(err, ErrInvalidMessageID) {
+		t.Fatalf(errNeedInvalidIDFmt, err)
+	}
+}
+
+func TestRawCallResultMarshalJSONRejectsMissingPayload(t *testing.T) {
+	t.Parallel()
+
+	_, err := json.Marshal(RawCallResult{
+		UniqueID: "uid",
+		Payload:  nil,
+	})
+	if !errors.Is(err, ErrPayloadRequired) {
+		t.Fatalf(errNeedPayloadFmt, err)
+	}
 }
 
 func TestCallErrorMarshalJSONDefaultsEmptyDetailsObject(t *testing.T) {
 	t.Parallel()
 
 	data, err := json.Marshal(CallError{
-		UniqueID:         "19223201",
+		UniqueID:         testMessageID,
 		ErrorCode:        "InternalError",
 		ErrorDescription: "boom",
+		ErrorDetails:     nil,
 	})
 	if err != nil {
-		t.Fatalf("json.Marshal: %v", err)
+		t.Fatalf(errMarshalFmt, err)
 	}
 
-	want := []any{
+	assertJSONArrayEqual(t, data, []any{
 		float64(4),
-		"19223201",
+		testMessageID,
 		"InternalError",
 		"boom",
 		map[string]any{},
-	}
-
-	assertJSONArrayEqual(t, data, want)
+	})
 }
 
-func TestCallErrorMarshalJSONValidation(t *testing.T) {
+func TestCallErrorMarshalJSONRejectsMissingMessageID(t *testing.T) {
 	t.Parallel()
 
-	_, err := json.Marshal(CallError{ErrorCode: "ProtocolError", ErrorDescription: "bad"})
+	_, err := json.Marshal(CallError{
+		UniqueID:         "",
+		ErrorCode:        "ProtocolError",
+		ErrorDescription: "bad",
+		ErrorDetails:     map[string]any{},
+	})
 	if !errors.Is(err, ErrInvalidMessageID) {
-		t.Fatalf("expected ErrInvalidMessageID, got %v", err)
+		t.Fatalf(errNeedInvalidIDFmt, err)
 	}
+}
 
-	_, err = json.Marshal(CallError{UniqueID: "uid", ErrorDescription: "bad"})
+func TestCallErrorMarshalJSONRejectsMissingCode(t *testing.T) {
+	t.Parallel()
+
+	_, err := json.Marshal(CallError{
+		UniqueID:         "uid",
+		ErrorCode:        "",
+		ErrorDescription: "bad",
+		ErrorDetails:     map[string]any{},
+	})
 	if !errors.Is(err, ErrErrorCodeRequired) {
 		t.Fatalf("expected ErrErrorCodeRequired, got %v", err)
 	}
+}
 
-	_, err = json.Marshal(CallError{UniqueID: "uid", ErrorCode: "ProtocolError"})
+func TestCallErrorMarshalJSONRejectsMissingDescription(t *testing.T) {
+	t.Parallel()
+
+	_, err := json.Marshal(CallError{
+		UniqueID:         "uid",
+		ErrorCode:        "ProtocolError",
+		ErrorDescription: "",
+		ErrorDetails:     map[string]any{},
+	})
 	if !errors.Is(err, ErrErrorDescriptionAbsent) {
 		t.Fatalf("expected ErrErrorDescriptionAbsent, got %v", err)
 	}
 }
 
-func TestParseCallValidationBranches(t *testing.T) {
+func TestParseCallRejectsWrongElementCount(t *testing.T) {
 	t.Parallel()
 
 	_, err := parseCall([]json.RawMessage{
@@ -250,41 +390,53 @@ func TestParseCallValidationBranches(t *testing.T) {
 		json.RawMessage(`"Authorize"`),
 	})
 	if !errors.Is(err, ErrInvalidFrame) {
-		t.Fatalf("expected ErrInvalidFrame, got %v", err)
+		t.Fatalf(errNeedInvalidFrm, err)
 	}
+}
 
-	_, err = parseCall([]json.RawMessage{
+func TestParseCallRejectsInvalidMessageID(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseCall([]json.RawMessage{
 		json.RawMessage(`2`),
 		json.RawMessage(`123`),
 		json.RawMessage(`"Authorize"`),
 		json.RawMessage(`{}`),
 	})
 	if !errors.Is(err, ErrInvalidMessageID) {
-		t.Fatalf("expected ErrInvalidMessageID, got %v", err)
+		t.Fatalf(errNeedInvalidIDFmt, err)
 	}
+}
 
-	_, err = parseCall([]json.RawMessage{
+func TestParseCallRejectsInvalidAction(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseCall([]json.RawMessage{
 		json.RawMessage(`2`),
 		json.RawMessage(`"uid"`),
 		json.RawMessage(`123`),
 		json.RawMessage(`{}`),
 	})
 	if !errors.Is(err, ErrInvalidAction) {
-		t.Fatalf("expected ErrInvalidAction, got %v", err)
+		t.Fatalf(errNeedActionFmt, err)
 	}
+}
 
-	_, err = parseCall([]json.RawMessage{
+func TestParseCallRejectsMissingPayload(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseCall([]json.RawMessage{
 		json.RawMessage(`2`),
 		json.RawMessage(`"uid"`),
 		json.RawMessage(`"Authorize"`),
 		json.RawMessage(` `),
 	})
 	if !errors.Is(err, ErrPayloadRequired) {
-		t.Fatalf("expected ErrPayloadRequired, got %v", err)
+		t.Fatalf(errNeedPayloadFmt, err)
 	}
 }
 
-func TestParseCallResultValidationBranches(t *testing.T) {
+func TestParseCallResultRejectsWrongElementCount(t *testing.T) {
 	t.Parallel()
 
 	_, err := parseCallResult([]json.RawMessage{
@@ -292,29 +444,37 @@ func TestParseCallResultValidationBranches(t *testing.T) {
 		json.RawMessage(`"uid"`),
 	})
 	if !errors.Is(err, ErrInvalidFrame) {
-		t.Fatalf("expected ErrInvalidFrame, got %v", err)
+		t.Fatalf(errNeedInvalidFrm, err)
 	}
+}
 
-	_, err = parseCallResult([]json.RawMessage{
+func TestParseCallResultRejectsInvalidMessageID(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseCallResult([]json.RawMessage{
 		json.RawMessage(`3`),
 		json.RawMessage(`123`),
 		json.RawMessage(`{}`),
 	})
 	if !errors.Is(err, ErrInvalidMessageID) {
-		t.Fatalf("expected ErrInvalidMessageID, got %v", err)
+		t.Fatalf(errNeedInvalidIDFmt, err)
 	}
+}
 
-	_, err = parseCallResult([]json.RawMessage{
+func TestParseCallResultRejectsMissingPayload(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseCallResult([]json.RawMessage{
 		json.RawMessage(`3`),
 		json.RawMessage(`"uid"`),
 		json.RawMessage(` `),
 	})
 	if !errors.Is(err, ErrPayloadRequired) {
-		t.Fatalf("expected ErrPayloadRequired, got %v", err)
+		t.Fatalf(errNeedPayloadFmt, err)
 	}
 }
 
-func TestParseCallErrorValidationBranches(t *testing.T) {
+func TestParseCallErrorRejectsWrongElementCount(t *testing.T) {
 	t.Parallel()
 
 	_, err := parseCallError([]json.RawMessage{
@@ -324,10 +484,14 @@ func TestParseCallErrorValidationBranches(t *testing.T) {
 		json.RawMessage(`"bad"`),
 	})
 	if !errors.Is(err, ErrInvalidFrame) {
-		t.Fatalf("expected ErrInvalidFrame, got %v", err)
+		t.Fatalf(errNeedInvalidFrm, err)
 	}
+}
 
-	_, err = parseCallError([]json.RawMessage{
+func TestParseCallErrorRejectsInvalidMessageID(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseCallError([]json.RawMessage{
 		json.RawMessage(`4`),
 		json.RawMessage(`123`),
 		json.RawMessage(`"ProtocolError"`),
@@ -335,10 +499,14 @@ func TestParseCallErrorValidationBranches(t *testing.T) {
 		json.RawMessage(`{}`),
 	})
 	if !errors.Is(err, ErrInvalidMessageID) {
-		t.Fatalf("expected ErrInvalidMessageID, got %v", err)
+		t.Fatalf(errNeedInvalidIDFmt, err)
 	}
+}
 
-	_, err = parseCallError([]json.RawMessage{
+func TestParseCallErrorRejectsInvalidCode(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseCallError([]json.RawMessage{
 		json.RawMessage(`4`),
 		json.RawMessage(`"uid"`),
 		json.RawMessage(`123`),
@@ -348,8 +516,12 @@ func TestParseCallErrorValidationBranches(t *testing.T) {
 	if !errors.Is(err, ErrErrorCodeRequired) {
 		t.Fatalf("expected ErrErrorCodeRequired, got %v", err)
 	}
+}
 
-	_, err = parseCallError([]json.RawMessage{
+func TestParseCallErrorRejectsInvalidDescription(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseCallError([]json.RawMessage{
 		json.RawMessage(`4`),
 		json.RawMessage(`"uid"`),
 		json.RawMessage(`"ProtocolError"`),
@@ -359,8 +531,12 @@ func TestParseCallErrorValidationBranches(t *testing.T) {
 	if !errors.Is(err, ErrErrorDescriptionAbsent) {
 		t.Fatalf("expected ErrErrorDescriptionAbsent, got %v", err)
 	}
+}
 
-	_, err = parseCallError([]json.RawMessage{
+func TestParseCallErrorRejectsArrayDetails(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseCallError([]json.RawMessage{
 		json.RawMessage(`4`),
 		json.RawMessage(`"uid"`),
 		json.RawMessage(`"ProtocolError"`),
@@ -370,8 +546,12 @@ func TestParseCallErrorValidationBranches(t *testing.T) {
 	if !errors.Is(err, ErrErrorDetailsInvalid) {
 		t.Fatalf("expected ErrErrorDetailsInvalid, got %v", err)
 	}
+}
 
-	_, err = parseCallError([]json.RawMessage{
+func TestParseCallErrorRejectsNullDetails(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseCallError([]json.RawMessage{
 		json.RawMessage(`4`),
 		json.RawMessage(`"uid"`),
 		json.RawMessage(`"ProtocolError"`),
@@ -379,83 +559,196 @@ func TestParseCallErrorValidationBranches(t *testing.T) {
 		json.RawMessage(`null`),
 	})
 	if !errors.Is(err, ErrErrorDetailsInvalid) {
-		t.Fatalf("expected ErrErrorDetailsInvalid for null details, got %v", err)
+		t.Fatalf("expected ErrErrorDetailsInvalid, got %v", err)
 	}
 }
 
-func TestDecodeHelpersAndPredicates(t *testing.T) {
+func TestDecodeMessageTypeRejectsWrongJSONType(t *testing.T) {
 	t.Parallel()
 
-	if _, err := decodeMessageType(json.RawMessage(`"x"`)); !errors.Is(err, ErrInvalidFrame) {
+	_, err := decodeMessageType(json.RawMessage(`"x"`))
+	if !errors.Is(err, ErrInvalidFrame) {
+		t.Fatalf("expected ErrInvalidFrame, got %v", err)
+	}
+}
+
+func TestDecodeStringRejectsWrongJSONType(t *testing.T) {
+	t.Parallel()
+
+	_, err := decodeString(json.RawMessage(`123`), ErrInvalidAction)
+	if !errors.Is(err, ErrInvalidAction) {
+		t.Fatalf(errNeedActionFmt, err)
+	}
+}
+
+func TestDecodeStringRejectsEmptyString(t *testing.T) {
+	t.Parallel()
+
+	_, err := decodeString(json.RawMessage(`""`), ErrInvalidAction)
+	if !errors.Is(err, ErrInvalidAction) {
+		t.Fatalf(errNeedActionFmt, err)
+	}
+}
+
+func TestDecodeStringReturnsValue(t *testing.T) {
+	t.Parallel()
+
+	value, err := decodeString(json.RawMessage(`"ok"`), ErrInvalidAction)
+	if err != nil {
+		t.Fatalf("decodeString: %v", err)
+	}
+
+	if value != "ok" {
+		t.Fatalf("unexpected value: %q", value)
+	}
+}
+
+func TestValidateMessageIDRejectsEmptyValue(t *testing.T) {
+	t.Parallel()
+
+	err := validateMessageID("")
+	if !errors.Is(err, ErrInvalidMessageID) {
+		t.Fatalf("expected ErrInvalidMessageID, got %v", err)
+	}
+}
+
+func TestValidateActionRejectsEmptyValue(t *testing.T) {
+	t.Parallel()
+
+	err := validateAction("")
+	if !errors.Is(err, ErrInvalidAction) {
+		t.Fatalf("expected ErrInvalidAction, got %v", err)
+	}
+}
+
+func TestMarshalJSONArrayRejectsUnsupportedValue(t *testing.T) {
+	t.Parallel()
+
+	data, err := marshalJSONArray(make(chan int))
+	if !errors.Is(err, ErrInvalidFrame) {
 		t.Fatalf("expected ErrInvalidFrame, got %v", err)
 	}
 
-	if _, err := decodeString(json.RawMessage(`123`), ErrInvalidAction); !errors.Is(err, ErrInvalidAction) {
-		t.Fatalf("expected ErrInvalidAction, got %v", err)
+	if data != nil {
+		t.Fatalf("expected nil data, got %v", data)
+	}
+}
+
+func TestDecodePayloadReturnsValue(t *testing.T) {
+	t.Parallel()
+
+	payload, err := DecodePayload[map[string]string](
+		json.RawMessage(`{"k":"v"}`),
+	)
+	if err != nil {
+		t.Fatalf("DecodePayload: %v", err)
 	}
 
-	if _, err := decodeString(json.RawMessage(`""`), ErrInvalidAction); !errors.Is(err, ErrInvalidAction) {
-		t.Fatalf("expected ErrInvalidAction for empty string, got %v", err)
+	if payload["k"] != "v" {
+		t.Fatalf("unexpected payload: %v", payload)
 	}
+}
 
-	if _, err := decodeString(json.RawMessage(`"ok"`), ErrInvalidAction); err != nil {
-		t.Fatalf("expected decodeString success, got %v", err)
-	}
+func TestDecodePayloadRejectsMissingPayload(t *testing.T) {
+	t.Parallel()
 
-	if err := validateMessageID(""); !errors.Is(err, ErrInvalidMessageID) {
-		t.Fatalf("expected ErrInvalidMessageID, got %v", err)
-	}
-
-	if err := validateAction(""); !errors.Is(err, ErrInvalidAction) {
-		t.Fatalf("expected ErrInvalidAction, got %v", err)
-	}
-
-	data, err := marshalJSONArray(make(chan int))
-	if !errors.Is(err, ErrInvalidFrame) || data != nil {
-		t.Fatalf("expected marshal ErrInvalidFrame, got data=%v err=%v", data, err)
-	}
-
-	payload, err := DecodePayload[map[string]string](json.RawMessage(`{"k":"v"}`))
-	if err != nil || payload["k"] != "v" {
-		t.Fatalf("unexpected payload decode result: payload=%v err=%v", payload, err)
-	}
-
-	if _, err := DecodePayload[map[string]string](json.RawMessage(` `)); !errors.Is(err, ErrPayloadRequired) {
+	_, err := DecodePayload[map[string]string](json.RawMessage(` `))
+	if !errors.Is(err, ErrPayloadRequired) {
 		t.Fatalf("expected ErrPayloadRequired, got %v", err)
 	}
+}
 
-	if _, err := DecodePayload[map[string]string](json.RawMessage(`1`)); !errors.Is(err, ErrPayloadDecode) {
+func TestDecodePayloadRejectsInvalidPayload(t *testing.T) {
+	t.Parallel()
+
+	_, err := DecodePayload[map[string]string](json.RawMessage(`1`))
+	if !errors.Is(err, ErrPayloadDecode) {
 		t.Fatalf("expected ErrPayloadDecode, got %v", err)
 	}
+}
 
-	call := RawCall{UniqueID: "uid", Action: "Authorize", Payload: json.RawMessage(`{}`)}
-	result := RawCallResult{UniqueID: "uid", Payload: json.RawMessage(`{}`)}
+func TestIsCall(t *testing.T) {
+	t.Parallel()
+
+	rawCall := RawCall{
+		UniqueID: testUID,
+		Action:   testActionAuthorize,
+		Payload:  json.RawMessage(testEmptyJSON),
+	}
+
+	if !IsCall(rawCall) {
+		t.Fatal("expected IsCall to return true")
+	}
+
+	if IsCall(nil) {
+		t.Fatal("expected IsCall to return false for nil")
+	}
+}
+
+func TestIsCallResult(t *testing.T) {
+	t.Parallel()
+
+	rawCallResult := RawCallResult{
+		UniqueID: testUID,
+		Payload:  json.RawMessage(testEmptyJSON),
+	}
+
+	if !IsCallResult(rawCallResult) {
+		t.Fatal("expected IsCallResult to return true")
+	}
+
+	if IsCallResult(nil) {
+		t.Fatal("expected IsCallResult to return false for nil")
+	}
+}
+
+func TestIsCallError(t *testing.T) {
+	t.Parallel()
+
 	callError := CallError{
-		UniqueID:         "uid",
+		UniqueID:         testUID,
 		ErrorCode:        "ProtocolError",
 		ErrorDescription: "bad",
 		ErrorDetails:     map[string]any{},
 	}
 
-	if !IsCall(call) || IsCall(nil) || IsCall(result) {
-		t.Fatal("IsCall predicate mismatch")
+	if !IsCallError(callError) {
+		t.Fatal("expected IsCallError to return true")
 	}
 
-	if !IsCallResult(result) || IsCallResult(nil) || IsCallResult(call) {
-		t.Fatal("IsCallResult predicate mismatch")
+	if IsCallError(nil) {
+		t.Fatal("expected IsCallError to return false for nil")
+	}
+}
+
+func TestAsRawCallRejectsWrongType(t *testing.T) {
+	t.Parallel()
+
+	_, err := AsRawCall(RawCallResult{
+		UniqueID: testUID,
+		Payload:  json.RawMessage(testEmptyJSON),
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestAsRawCallReturnsValue(t *testing.T) {
+	t.Parallel()
+
+	expected := RawCall{
+		UniqueID: testUID,
+		Action:   testActionAuthorize,
+		Payload:  json.RawMessage(testEmptyJSON),
 	}
 
-	if !IsCallError(callError) || IsCallError(nil) || IsCallError(call) {
-		t.Fatal("IsCallError predicate mismatch")
+	actual, err := AsRawCall(expected)
+	if err != nil {
+		t.Fatalf("AsRawCall: %v", err)
 	}
 
-	if _, err := AsRawCall(result); err == nil {
-		t.Fatal("expected AsRawCall type assertion error")
-	}
-
-	raw, err := AsRawCall(call)
-	if err != nil || raw.UniqueID != "uid" {
-		t.Fatalf("unexpected AsRawCall result: raw=%v err=%v", raw, err)
+	if !reflect.DeepEqual(actual, expected) {
+		t.Fatalf("unexpected raw call: %#v", actual)
 	}
 }
 
@@ -463,7 +756,9 @@ func assertJSONArrayEqual(t *testing.T, data []byte, want []any) {
 	t.Helper()
 
 	var got []any
-	if err := json.Unmarshal(data, &got); err != nil {
+
+	err := json.Unmarshal(data, &got)
+	if err != nil {
 		t.Fatalf("json.Unmarshal(got): %v", err)
 	}
 
