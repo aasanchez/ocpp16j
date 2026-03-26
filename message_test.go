@@ -15,26 +15,6 @@ const (
 	errFmtExpectedGot = "expected %q, got %q"
 )
 
-// --- validateUniqueId ---
-
-func Test_validateUniqueId_Empty(t *testing.T) {
-	t.Parallel()
-
-	err := validateUniqueId("")
-	if !errors.Is(err, ErrInvalidMessageID) {
-		t.Fatalf("expected ErrInvalidMessageID, got %v", err)
-	}
-}
-
-func Test_validateUniqueId_Valid(t *testing.T) {
-	t.Parallel()
-
-	err := validateUniqueId(testUniqueId)
-	if err != nil {
-		t.Fatalf(errFmtNilGot, err)
-	}
-}
-
 // --- validateAction ---
 
 func Test_validateAction_Empty(t *testing.T) {

@@ -5,7 +5,7 @@ import "encoding/json"
 // RawCall represents a parsed CALL message (MessageTypeId 2)
 // with an undecoded Payload.
 type RawCall struct {
-	UniqueId string
+	UniqueId UniqueId
 	Action   string
 	Payload  json.RawMessage
 }
@@ -13,15 +13,15 @@ type RawCall struct {
 // RawCallResult represents a parsed CALLRESULT message
 // (MessageTypeId 3) with an undecoded Payload.
 type RawCallResult struct {
-	UniqueId string
+	UniqueId UniqueId
 	Payload  json.RawMessage
 }
 
 // RawCallError represents a parsed CALLERROR message
 // (MessageTypeId 4) as defined in section 4.2.3.
 type RawCallError struct {
-	UniqueId         string
-	ErrorCode        string
+	UniqueId         UniqueId
+	ErrorCode        ErrorCode
 	ErrorDescription string
 	ErrorDetails     map[string]any
 }
@@ -33,7 +33,7 @@ func (RawCall) MessageType() MessageType {
 
 // MessageId returns the UniqueId correlation identifier.
 func (rawCall RawCall) MessageId() string {
-	return rawCall.UniqueId
+	return rawCall.UniqueId.String()
 }
 
 // MessageType returns the CallResult MessageTypeId (3).
@@ -43,7 +43,7 @@ func (RawCallResult) MessageType() MessageType {
 
 // MessageId returns the UniqueId correlation identifier.
 func (rawCallResult RawCallResult) MessageId() string {
-	return rawCallResult.UniqueId
+	return rawCallResult.UniqueId.String()
 }
 
 // MessageType returns the CallError MessageTypeId (4).
@@ -53,5 +53,5 @@ func (RawCallError) MessageType() MessageType {
 
 // MessageId returns the UniqueId correlation identifier.
 func (rawCallError RawCallError) MessageId() string {
-	return rawCallError.UniqueId
+	return rawCallError.UniqueId.String()
 }

@@ -26,6 +26,16 @@ Reading the code should feel like reading the spec itself.
 - **CallResult** — message type 3 (response)
 - **CallError** — message type 4 (error response)
 - **Charge Point** / **Central System** — the two OCPP actors
+- **MessageTypeNumber** — the integer value (2, 3, or 4) in Table 2
+- **messageId** — max 36 characters (Table 3), to allow for GUIDs
+- **ErrorCode values** (Table 7, wire-format strings, exact spec spelling):
+  NotImplemented, NotSupported, InternalError, ProtocolError,
+  SecurityError, FormationViolation, PropertyConstraintViolation,
+  OccurenceConstraintViolation (spec typo — missing second 'r'),
+  TypeConstraintViolation, GenericError
+- **ErrorDescription** — "should be filled in if possible, otherwise
+  a clear empty string" (empty `""` is valid on the wire)
+- **Payload** — allows both `null` and empty object `{}` on the wire
 
 ## Prerequisites
 
@@ -110,6 +120,19 @@ provide it explicitly when decoding.
 
 ### Type Design
 
+- **First-class domain types are mandatory.** Every spec concept that
+  carries constraints or semantics MUST be its own Go type — not a
+  bare primitive. This is the single most important design rule in
+  the project. Developers using this library should work with spec
+  concepts as types, not with raw strings or ints. Examples:
+  - `MessageType uint8` — not a bare `uint8`
+  - `UniqueId string` — not a bare `string` (max 36 chars, Table 3)
+  - `ErrorCode string` — not a bare `string` (Table 7 vocabulary)
+  - Future spec concepts follow the same rule
+- Each domain type gets a validating constructor (`NewUniqueId`,
+  `NewErrorCode`, etc.) that enforces the spec constraints. The
+  zero value of a domain type is invalid by design — only the
+  constructor produces valid instances.
 - All constructors return `(T, error)` — no separate `Validate()` methods
 - Value receivers and immutable fields for thread safety
 - Use `json.RawMessage` for Payload fields decoded later

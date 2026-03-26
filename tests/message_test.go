@@ -11,14 +11,19 @@ const (
 	expectedCall       ocpp16json.MessageType = 2
 	expectedCallResult ocpp16json.MessageType = 3
 	expectedCallError  ocpp16json.MessageType = 4
-	testUniqueId                              = "19223201"
+	testUniqueIdStr                           = "19223201"
 	testAction                                = "Authorize"
-	testErrorCode                             = "NotImplemented"
 	testErrorDesc                             = "Unknown action"
 	emptyPayload                              = `{}`
 	errFmtIntExpGot                           = "expected %d, got %d"
 	errFmtStrExpGot                           = "expected %q, got %q"
 	errFmtNilGot                              = "expected nil error, got %v"
+)
+
+//nolint:gochecknoglobals // Test-only typed values.
+var (
+	testUniqueId  = ocpp16json.UniqueId(testUniqueIdStr)
+	testErrorCode = ocpp16json.NotImplemented
 )
 
 func Test_Call_Equals_2(t *testing.T) {
@@ -86,7 +91,7 @@ func Test_RawCall_MessageId_ReturnsValue(t *testing.T) {
 		Payload:  json.RawMessage(emptyPayload),
 	}
 
-	if rawCall.MessageId() != testUniqueId {
+	if rawCall.MessageId() != testUniqueIdStr {
 		t.Fatalf(
 			errFmtStrExpGot,
 			testUniqueId,
@@ -126,7 +131,7 @@ func Test_RawCallResult_MessageId_ReturnsValue(
 		Payload:  json.RawMessage(emptyPayload),
 	}
 
-	if rawCallResult.MessageId() != testUniqueId {
+	if rawCallResult.MessageId() != testUniqueIdStr {
 		t.Fatalf(
 			errFmtStrExpGot,
 			testUniqueId,
@@ -170,7 +175,7 @@ func Test_RawCallError_MessageId_ReturnsValue(
 		ErrorDetails:     map[string]any{},
 	}
 
-	if rawCallError.MessageId() != testUniqueId {
+	if rawCallError.MessageId() != testUniqueIdStr {
 		t.Fatalf(
 			errFmtStrExpGot,
 			testUniqueId,
@@ -214,7 +219,7 @@ func Test_DecodedCall_MessageId_ReturnsValue(
 		t.Fatalf(errFmtNilGot, err)
 	}
 
-	if decodedCall.MessageId() != testUniqueId {
+	if decodedCall.MessageId() != testUniqueIdStr {
 		t.Fatalf(
 			errFmtStrExpGot,
 			testUniqueId,
@@ -258,7 +263,7 @@ func Test_DecodedCallResult_MessageId_ReturnsValue(
 		t.Fatalf(errFmtNilGot, err)
 	}
 
-	if decodedCallResult.MessageId() != testUniqueId {
+	if decodedCallResult.MessageId() != testUniqueIdStr {
 		t.Fatalf(
 			errFmtStrExpGot,
 			testUniqueId,

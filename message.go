@@ -67,14 +67,6 @@ func AsRawCall(message Message) (RawCall, error) {
 	return rawCall, nil
 }
 
-func validateUniqueId(uniqueId string) error {
-	if uniqueId == emptyString {
-		return ErrInvalidMessageID
-	}
-
-	return nil
-}
-
 func validateAction(action string) error {
 	if action == emptyString {
 		return ErrInvalidAction
