@@ -3,10 +3,12 @@ package ocpp16json
 import "errors"
 
 var (
-	// ErrInvalidFrame reports an invalid OCPP-J frame envelope.
-	ErrInvalidFrame = errors.New("invalid OCPP-J frame")
-	// ErrUnsupportedFrameType reports an unknown OCPP-J message type.
-	ErrUnsupportedFrameType = errors.New("unsupported OCPP-J frame type")
+	// ErrInvalidMessage reports an invalid OCPP-J message envelope.
+	ErrInvalidMessage = errors.New("invalid OCPP-J message")
+	// ErrUnsupportedMessageType reports an unknown MessageTypeNumber.
+	ErrUnsupportedMessageType = errors.New(
+		"unsupported OCPP-J message type",
+	)
 	// ErrInvalidMessageID reports a missing or invalid unique ID.
 	ErrInvalidMessageID = errors.New("invalid OCPP-J message id")
 	// ErrInvalidAction reports a missing or invalid action name.
@@ -27,5 +29,5 @@ var (
 	ErrActionAlreadyRegistered = errors.New("action already registered")
 	// ErrUnknownAction reports an action with no registered decoder.
 	ErrUnknownAction   = errors.New("unknown action")
-	errFrameNotRawCall = errors.New("frame is not a raw call")
+	errMessageNotCall = errors.New("message is not a Call")
 )

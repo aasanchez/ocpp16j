@@ -4,23 +4,23 @@ import (
 	"testing"
 )
 
-func Test_errFrameNotRawCall_NonNil(t *testing.T) {
+func Test_errMessageNotCall_NonNil(t *testing.T) {
 	t.Parallel()
 
-	if errFrameNotRawCall == nil {
-		t.Fatal("errFrameNotRawCall is nil")
+	if errMessageNotCall == nil {
+		t.Fatal("errMessageNotCall is nil")
 	}
 }
 
-func Test_errFrameNotRawCall_Message(t *testing.T) {
+func Test_errMessageNotCall_Message(t *testing.T) {
 	t.Parallel()
 
-	expected := "frame is not a raw call"
-	if errFrameNotRawCall.Error() != expected {
+	expected := "message is not a Call"
+	if errMessageNotCall.Error() != expected {
 		t.Fatalf(
 			"expected %q, got %q",
 			expected,
-			errFrameNotRawCall.Error(),
+			errMessageNotCall.Error(),
 		)
 	}
 }

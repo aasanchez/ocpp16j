@@ -7,19 +7,19 @@ import (
 	ocpp16json "github.com/aasanchez/ocpp16j"
 )
 
-func Test_ErrInvalidFrame_NonNil(t *testing.T) {
+func Test_ErrInvalidMessage_NonNil(t *testing.T) {
 	t.Parallel()
 
-	if ocpp16json.ErrInvalidFrame == nil {
-		t.Fatal("ErrInvalidFrame is nil")
+	if ocpp16json.ErrInvalidMessage == nil {
+		t.Fatal("ErrInvalidMessage is nil")
 	}
 }
 
-func Test_ErrUnsupportedFrameType_NonNil(t *testing.T) {
+func Test_ErrUnsupportedMessageType_NonNil(t *testing.T) {
 	t.Parallel()
 
-	if ocpp16json.ErrUnsupportedFrameType == nil {
-		t.Fatal("ErrUnsupportedFrameType is nil")
+	if ocpp16json.ErrUnsupportedMessageType == nil {
+		t.Fatal("ErrUnsupportedMessageType is nil")
 	}
 }
 
@@ -99,8 +99,8 @@ func Test_SentinelErrors_AreDistinct(t *testing.T) {
 	t.Parallel()
 
 	sentinels := []error{
-		ocpp16json.ErrInvalidFrame,
-		ocpp16json.ErrUnsupportedFrameType,
+		ocpp16json.ErrInvalidMessage,
+		ocpp16json.ErrUnsupportedMessageType,
 		ocpp16json.ErrInvalidMessageID,
 		ocpp16json.ErrInvalidAction,
 		ocpp16json.ErrPayloadRequired,

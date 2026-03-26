@@ -88,3 +88,5 @@ reports/
 .gocache
 testdata
 .claude/
+
+ocpp-j-1.6-specification.pdf

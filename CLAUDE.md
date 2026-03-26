@@ -2,11 +2,30 @@
 
 ## Project Overview
 
-OCPP 1.6 JSON transport layer for Go (`github.com/aasanchez/ocpp16j`).
-Handles wire-format correctness only: parsing, marshaling, and validating
-OCPP-J JSON frame envelopes. Delegates all message-level validation to
-`github.com/aasanchez/ocpp16messages`. This is a library with no binary
-build target.
+OCPP-J 1.6 RPC framework for Go (`github.com/aasanchez/ocpp16j`).
+Implements the message wrapper layer defined in section 4 of the
+OCPP-J 1.6 specification: parsing, marshaling, and validating
+OCPP-J messages (Call, CallResult, CallError). Delegates all
+Payload validation to `github.com/aasanchez/ocpp16messages`.
+This is a library with no binary build target.
+
+## Terminology
+
+This package follows OCPP-J 1.6 specification terminology strictly.
+Reading the code should feel like reading the spec itself.
+
+- **Message** — the JSON array sent over WebSocket (not "frame")
+- **MessageType** / **MessageTypeId** — the integer 2, 3, or 4
+- **UniqueId** — the string identifier matching request to response
+- **Action** — the case-sensitive name of the remote procedure
+- **Payload** — the JSON object with arguments or results
+- **ErrorCode** — the string code in a CallError
+- **ErrorDescription** — the human-readable description in CallError
+- **ErrorDetails** — the JSON object with error details in CallError
+- **Call** — message type 2 (request)
+- **CallResult** — message type 3 (response)
+- **CallError** — message type 4 (error response)
+- **Charge Point** / **Central System** — the two OCPP actors
 
 ## Prerequisites
 
@@ -33,23 +52,25 @@ make test                          # Unit and example tests with coverage
 This package sits between raw WebSocket bytes and
 `github.com/aasanchez/ocpp16messages`. It owns:
 
-- **Frame parsing**: `Parse([]byte) (Frame, error)` — validates the JSON
-  array envelope, extracts message type, unique ID, action, and raw payload
-- **Frame marshaling**: `MarshalJSON()` on frame types — serializes back
-  to canonical OCPP-J arrays
+- **Message parsing**: `Parse([]byte) (Message, error)` — validates
+  the OCPP-J message wrapper (MessageTypeId, UniqueId, Action,
+  Payload) and returns a typed Call, CallResult, or CallError
+- **Message marshaling**: `MarshalJSON()` on message types —
+  serializes back to canonical OCPP-J arrays
 - **Payload decoding**: `JSONDecoder` adapter bridging raw JSON to
   `ocpp16messages` constructors via a thread-safe `Registry`
 - **Error vocabulary**: sentinel errors for every failure mode
 
-### OCPP-J Wire Format
+### OCPP-J Message Structures (spec section 4.2)
 
 ```text
-CALL:       [2, "uniqueId", "Action", {payload}]
-CALLRESULT: [3, "uniqueId", {payload}]
-CALLERROR:  [4, "uniqueId", "errorCode", "errorDescription", {details}]
+Call:       [<MessageTypeId>, "<UniqueId>", "<Action>", {<Payload>}]
+CallResult: [<MessageTypeId>, "<UniqueId>", {<Payload>}]
+CallError:  [<MessageTypeId>, "<UniqueId>", "<ErrorCode>",
+             "<ErrorDescription>", {<ErrorDetails>}]
 ```
 
-CALLRESULT does not carry the action name on the wire — the caller must
+CallResult does not carry the Action on the wire — the caller must
 provide it explicitly when decoding.
 
 ## Go Code Style
@@ -91,7 +112,7 @@ provide it explicitly when decoding.
 
 - All constructors return `(T, error)` — no separate `Validate()` methods
 - Value receivers and immutable fields for thread safety
-- Use `json.RawMessage` for payloads that will be decoded later
+- Use `json.RawMessage` for Payload fields decoded later
 - Generics for decoder adapters: `JSONDecoder[Input, Output any]`
 
 ## Testing
@@ -133,6 +154,6 @@ golangci-lint config is in `golangci.yml`. Key settings:
 
 ## Dependencies
 
-- `github.com/aasanchez/ocpp16messages v1.0.3` — OCPP 1.6 message types
-  with `Req()`/`Conf()` constructors and validation
+- `github.com/aasanchez/ocpp16messages v1.0.3` — OCPP 1.6 message
+  types with `Req()`/`Conf()` constructors and validation
 - Standard library only beyond that — zero third-party dependencies
