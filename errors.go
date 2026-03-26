@@ -28,6 +28,6 @@ var (
 	// ErrActionAlreadyRegistered reports duplicate action registration.
 	ErrActionAlreadyRegistered = errors.New("action already registered")
 	// ErrUnknownAction reports an action with no registered decoder.
-	ErrUnknownAction   = errors.New("unknown action")
+	ErrUnknownAction  = errors.New("unknown action")
 	errMessageNotCall = errors.New("message is not a Call")
 )

@@ -37,6 +37,7 @@ linters:
         main:
           allow:
             - $gostd
+            - github.com/aasanchez/ocpp16j
             - github.com/aasanchez/ocpp16messages
 
 output:

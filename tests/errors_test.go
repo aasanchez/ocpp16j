@@ -95,6 +95,8 @@ func Test_ErrUnknownAction_NonNil(t *testing.T) {
 	}
 }
 
+const nextIndex = 1
+
 func Test_SentinelErrors_AreDistinct(t *testing.T) {
 	t.Parallel()
 
@@ -113,7 +115,7 @@ func Test_SentinelErrors_AreDistinct(t *testing.T) {
 	}
 
 	for outer := range sentinels {
-		for inner := outer + 1; inner < len(sentinels); inner++ {
+		for inner := outer + nextIndex; inner < len(sentinels); inner++ {
 			if errors.Is(sentinels[outer], sentinels[inner]) {
 				t.Errorf(
 					"sentinel %d and %d are not distinct",
