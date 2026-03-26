@@ -86,7 +86,7 @@ func Test_decodeMessageType_Call(t *testing.T) {
 		t.Fatalf(errFmtNilGot, err)
 	}
 
-	if messageType != Call {
+	if messageType != MessageTypeCall {
 		t.Fatalf("expected Call (2), got %d", messageType)
 	}
 }
@@ -101,7 +101,7 @@ func Test_decodeMessageType_CallResult(t *testing.T) {
 		t.Fatalf(errFmtNilGot, err)
 	}
 
-	if messageType != CallResult {
+	if messageType != MessageTypeCallResult {
 		t.Fatalf(
 			"expected CallResult (3), got %d", messageType,
 		)
@@ -118,7 +118,7 @@ func Test_decodeMessageType_CallError(t *testing.T) {
 		t.Fatalf(errFmtNilGot, err)
 	}
 
-	if messageType != CallError {
+	if messageType != MessageTypeCallError {
 		t.Fatalf(
 			"expected CallError (4), got %d", messageType,
 		)
@@ -156,7 +156,7 @@ func Test_marshalJSONArray_Valid(t *testing.T) {
 	t.Parallel()
 
 	data, err := marshalJSONArray(
-		Call, testUniqueId, testAction,
+		MessageTypeCall, testUniqueId, testAction,
 	)
 	if err != nil {
 		t.Fatalf(errFmtNilGot, err)

@@ -23,7 +23,7 @@ func NewDecodedCall[T any](
 	}
 
 	return DecodedMessage[T]{
-		messageType: Call,
+		messageType: MessageTypeCall,
 		UniqueId:    uniqueId,
 		Action:      action,
 		Payload:     payload,
@@ -44,7 +44,7 @@ func NewDecodedCallResult[T any](
 	}
 
 	return DecodedMessage[T]{
-		messageType: CallResult,
+		messageType: MessageTypeCallResult,
 		UniqueId:    uniqueId,
 		Action:      action,
 		Payload:     payload,

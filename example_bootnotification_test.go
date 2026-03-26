@@ -28,7 +28,7 @@ func ExampleParse_bootNotificationRequest() {
 		return
 	}
 
-	rawCall, _ := ocpp16json.AsRawCall(message)
+	rawCall, _ := ocpp16json.AsCall(message)
 
 	registry := ocpp16json.NewRegistry()
 
@@ -73,7 +73,7 @@ func ExampleParse_bootNotificationResponse() {
 		"interval":    heartbeatIntervalSeconds,
 	}
 
-	callResult, _ := ocpp16json.NewRawCallResult(
+	callResult, _ := ocpp16json.NewCallResult(
 		uniqueId, payload,
 	)
 
@@ -105,7 +105,7 @@ func ExampleParse_bootNotificationInvalidPayload() {
 	)
 
 	message, _ := ocpp16json.Parse(wire)
-	rawCall, _ := ocpp16json.AsRawCall(message)
+	rawCall, _ := ocpp16json.AsCall(message)
 
 	registry := ocpp16json.NewRegistry()
 

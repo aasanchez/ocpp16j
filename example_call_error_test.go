@@ -7,10 +7,10 @@ import (
 	ocpp16json "github.com/aasanchez/ocpp16j"
 )
 
-func ExampleNewRawCallError() {
+func ExampleNewCallError() {
 	uniqueId, _ := ocpp16json.NewUniqueId("19223201")
 
-	rawCallError, err := ocpp16json.NewRawCallError(
+	rawCallError, err := ocpp16json.NewCallError(
 		uniqueId,
 		ocpp16json.NotImplemented,
 		"Unknown action",

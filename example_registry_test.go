@@ -60,8 +60,8 @@ func ExampleRegistry() {
 		return
 	}
 
-	// 3. Extract the RawCall and decode its payload.
-	rawCall, castErr := ocpp16json.AsRawCall(message)
+	// 3. Extract the Call and decode its payload.
+	rawCall, castErr := ocpp16json.AsCall(message)
 	if castErr != nil {
 		fmt.Println(errPrefix, castErr)
 

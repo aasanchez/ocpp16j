@@ -61,7 +61,7 @@ func Test_Parse_ValidCall_Action(t *testing.T) {
 		t.Fatalf(errFmtParseNilGot, err)
 	}
 
-	rawCall, castErr := ocpp16json.AsRawCall(message)
+	rawCall, castErr := ocpp16json.AsCall(message)
 	if castErr != nil {
 		t.Fatalf(errFmtParseNilGot, castErr)
 	}

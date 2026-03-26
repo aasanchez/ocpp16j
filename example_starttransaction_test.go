@@ -21,7 +21,7 @@ func ExampleParse_startTransactionRequest() {
 	)
 
 	message, _ := ocpp16json.Parse(wire)
-	rawCall, _ := ocpp16json.AsRawCall(message)
+	rawCall, _ := ocpp16json.AsCall(message)
 
 	registry := ocpp16json.NewRegistry()
 
@@ -68,7 +68,7 @@ func ExampleParse_startTransactionWrongType() {
 	)
 
 	message, _ := ocpp16json.Parse(wire)
-	rawCall, _ := ocpp16json.AsRawCall(message)
+	rawCall, _ := ocpp16json.AsCall(message)
 
 	registry := ocpp16json.NewRegistry()
 

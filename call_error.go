@@ -1,30 +1,30 @@
 package ocpp16json
 
-// RawCallError represents a parsed CALLERROR message
+// CallError represents a parsed CALLERROR message
 // (MessageTypeId 4) as defined in section 4.2.3.
-type RawCallError struct {
+type CallError struct {
 	UniqueId         UniqueId
 	ErrorCode        ErrorCode
 	ErrorDescription string
 	ErrorDetails     map[string]any
 }
 
-// NewRawCallError creates a CALLERROR message
+// NewCallError creates a CALLERROR message
 // (MessageTypeId 4). ErrorDescription may be empty per the
 // spec. If ErrorDetails is nil, it defaults to an empty
 // object.
-func NewRawCallError(
+func NewCallError(
 	uniqueId UniqueId,
 	errorCode ErrorCode,
 	errorDescription string,
 	errorDetails map[string]any,
-) (RawCallError, error) {
+) (CallError, error) {
 	details := errorDetails
 	if details == nil {
 		details = map[string]any{}
 	}
 
-	return RawCallError{
+	return CallError{
 		UniqueId:         uniqueId,
 		ErrorCode:        errorCode,
 		ErrorDescription: errorDescription,
@@ -33,12 +33,12 @@ func NewRawCallError(
 }
 
 // MessageType returns the CallError MessageTypeId (4).
-func (RawCallError) MessageType() MessageType {
-	return CallError
+func (CallError) MessageType() MessageType {
+	return MessageTypeCallError
 }
 
 // MessageId returns the UniqueId correlation identifier.
-func (rawCallError RawCallError) MessageId() string {
+func (rawCallError CallError) MessageId() string {
 	return rawCallError.UniqueId.String()
 }
 
@@ -47,11 +47,11 @@ func (rawCallError RawCallError) MessageId() string {
 // [4, "<UniqueId>", "<ErrorCode>", "<ErrorDescription>",
 //
 //	{<ErrorDetails>}]
-func (rawCallError RawCallError) MarshalJSON() (
+func (rawCallError CallError) MarshalJSON() (
 	[]byte, error,
 ) {
 	return marshalJSONArray(
-		CallError,
+		MessageTypeCallError,
 		rawCallError.UniqueId.String(),
 		rawCallError.ErrorCode.String(),
 		rawCallError.ErrorDescription,

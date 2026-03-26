@@ -13,35 +13,35 @@ const (
 	expectedEmptyDetails      = 0
 )
 
-// --- RawCallError struct ---
+// --- CallError struct ---
 
-func Test_RawCallError_MessageType_ReturnsCallError(
+func Test_CallError_MessageType_ReturnsCallError(
 	t *testing.T,
 ) {
 	t.Parallel()
 
-	rawCallError := ocpp16json.RawCallError{
+	rawCallError := ocpp16json.CallError{
 		UniqueId:         testUniqueId,
 		ErrorCode:        testErrorCode,
 		ErrorDescription: testErrorDesc,
 		ErrorDetails:     map[string]any{},
 	}
 
-	if rawCallError.MessageType() != ocpp16json.CallError {
+	if rawCallError.MessageType() != ocpp16json.MessageTypeCallError {
 		t.Fatalf(
 			errFmtIntExpGot,
-			ocpp16json.CallError,
+			ocpp16json.MessageTypeCallError,
 			rawCallError.MessageType(),
 		)
 	}
 }
 
-func Test_RawCallError_MessageId_ReturnsValue(
+func Test_CallError_MessageId_ReturnsValue(
 	t *testing.T,
 ) {
 	t.Parallel()
 
-	rawCallError := ocpp16json.RawCallError{
+	rawCallError := ocpp16json.CallError{
 		UniqueId:         testUniqueId,
 		ErrorCode:        testErrorCode,
 		ErrorDescription: testErrorDesc,
@@ -57,12 +57,12 @@ func Test_RawCallError_MessageId_ReturnsValue(
 	}
 }
 
-// --- NewRawCallError ---
+// --- NewCallError ---
 
-func Test_NewRawCallError_Success(t *testing.T) {
+func Test_NewCallError_Success(t *testing.T) {
 	t.Parallel()
 
-	rawCallError, err := ocpp16json.NewRawCallError(
+	rawCallError, err := ocpp16json.NewCallError(
 		testUniqueId,
 		ocpp16json.NotImplemented,
 		testErrorDesc,
@@ -81,10 +81,10 @@ func Test_NewRawCallError_Success(t *testing.T) {
 	}
 }
 
-func Test_NewRawCallError_EmptyDescription(t *testing.T) {
+func Test_NewCallError_EmptyDescription(t *testing.T) {
 	t.Parallel()
 
-	rawCallError, err := ocpp16json.NewRawCallError(
+	rawCallError, err := ocpp16json.NewCallError(
 		testUniqueId,
 		ocpp16json.GenericError,
 		emptyDescription,
@@ -102,12 +102,12 @@ func Test_NewRawCallError_EmptyDescription(t *testing.T) {
 	}
 }
 
-func Test_NewRawCallError_NilDetails_DefaultsToEmpty(
+func Test_NewCallError_NilDetails_DefaultsToEmpty(
 	t *testing.T,
 ) {
 	t.Parallel()
 
-	rawCallError, err := ocpp16json.NewRawCallError(
+	rawCallError, err := ocpp16json.NewCallError(
 		testUniqueId,
 		ocpp16json.GenericError,
 		testErrorDesc,
@@ -129,14 +129,14 @@ func Test_NewRawCallError_NilDetails_DefaultsToEmpty(
 	}
 }
 
-// --- RawCallError MarshalJSON ---
+// --- CallError MarshalJSON ---
 
-func Test_RawCallError_MarshalJSON_ProducesValidArray(
+func Test_CallError_MarshalJSON_ProducesValidArray(
 	t *testing.T,
 ) {
 	t.Parallel()
 
-	rawCallError, _ := ocpp16json.NewRawCallError(
+	rawCallError, _ := ocpp16json.NewCallError(
 		testUniqueId,
 		ocpp16json.GenericError,
 		testErrorDesc,
@@ -160,12 +160,12 @@ func Test_RawCallError_MarshalJSON_ProducesValidArray(
 	}
 }
 
-func Test_RawCallError_MarshalJSON_CorrectErrorCode(
+func Test_CallError_MarshalJSON_CorrectErrorCode(
 	t *testing.T,
 ) {
 	t.Parallel()
 
-	rawCallError := ocpp16json.RawCallError{
+	rawCallError := ocpp16json.CallError{
 		UniqueId:         testUniqueId,
 		ErrorCode:        testErrorCode,
 		ErrorDescription: testErrorDesc,
@@ -194,12 +194,12 @@ func Test_RawCallError_MarshalJSON_CorrectErrorCode(
 	}
 }
 
-func Test_RawCallError_MarshalJSON_CorrectMessageTypeId(
+func Test_CallError_MarshalJSON_CorrectMessageTypeId(
 	t *testing.T,
 ) {
 	t.Parallel()
 
-	rawCallError := ocpp16json.RawCallError{
+	rawCallError := ocpp16json.CallError{
 		UniqueId:         testUniqueId,
 		ErrorCode:        testErrorCode,
 		ErrorDescription: testErrorDesc,
@@ -219,10 +219,10 @@ func Test_RawCallError_MarshalJSON_CorrectMessageTypeId(
 
 	_ = json.Unmarshal(elements[0], &messageTypeId)
 
-	if messageTypeId != uint8(ocpp16json.CallError) {
+	if messageTypeId != uint8(ocpp16json.MessageTypeCallError) {
 		t.Fatalf(
 			errFmtIntExpGot,
-			ocpp16json.CallError,
+			ocpp16json.MessageTypeCallError,
 			messageTypeId,
 		)
 	}

@@ -13,30 +13,30 @@ const (
 	nullPayloadStr       = "null"
 )
 
-// --- RawCall struct ---
+// --- Call struct ---
 
-func Test_RawCall_MessageType_ReturnsCall(t *testing.T) {
+func Test_Call_MessageType_ReturnsCall(t *testing.T) {
 	t.Parallel()
 
-	rawCall := ocpp16json.RawCall{
+	rawCall := ocpp16json.Call{
 		UniqueId: testUniqueId,
 		Action:   testAction,
 		Payload:  json.RawMessage(emptyPayload),
 	}
 
-	if rawCall.MessageType() != ocpp16json.Call {
+	if rawCall.MessageType() != ocpp16json.MessageTypeCall {
 		t.Fatalf(
 			errFmtIntExpGot,
-			ocpp16json.Call,
+			ocpp16json.MessageTypeCall,
 			rawCall.MessageType(),
 		)
 	}
 }
 
-func Test_RawCall_MessageId_ReturnsValue(t *testing.T) {
+func Test_Call_MessageId_ReturnsValue(t *testing.T) {
 	t.Parallel()
 
-	rawCall := ocpp16json.RawCall{
+	rawCall := ocpp16json.Call{
 		UniqueId: testUniqueId,
 		Action:   testAction,
 		Payload:  json.RawMessage(emptyPayload),
@@ -51,14 +51,14 @@ func Test_RawCall_MessageId_ReturnsValue(t *testing.T) {
 	}
 }
 
-// --- NewRawCall ---
+// --- NewCall ---
 
-func Test_NewRawCall_Success(t *testing.T) {
+func Test_NewCall_Success(t *testing.T) {
 	t.Parallel()
 
 	payload := map[string]string{"key": "value"}
 
-	rawCall, err := ocpp16json.NewRawCall(
+	rawCall, err := ocpp16json.NewCall(
 		testUniqueId, testAction, payload,
 	)
 	if err != nil {
@@ -84,10 +84,10 @@ func Test_NewRawCall_Success(t *testing.T) {
 	}
 }
 
-func Test_NewRawCall_EmptyAction(t *testing.T) {
+func Test_NewCall_EmptyAction(t *testing.T) {
 	t.Parallel()
 
-	_, err := ocpp16json.NewRawCall(
+	_, err := ocpp16json.NewCall(
 		testUniqueId, "", nil,
 	)
 	if !errors.Is(err, ocpp16json.ErrInvalidAction) {
@@ -98,10 +98,10 @@ func Test_NewRawCall_EmptyAction(t *testing.T) {
 	}
 }
 
-func Test_NewRawCall_UnmarshalablePayload(t *testing.T) {
+func Test_NewCall_UnmarshalablePayload(t *testing.T) {
 	t.Parallel()
 
-	_, err := ocpp16json.NewRawCall(
+	_, err := ocpp16json.NewCall(
 		testUniqueId, testAction, make(chan int),
 	)
 	if !errors.Is(err, ocpp16json.ErrPayloadDecode) {
@@ -112,10 +112,10 @@ func Test_NewRawCall_UnmarshalablePayload(t *testing.T) {
 	}
 }
 
-func Test_NewRawCall_NilPayload(t *testing.T) {
+func Test_NewCall_NilPayload(t *testing.T) {
 	t.Parallel()
 
-	rawCall, err := ocpp16json.NewRawCall(
+	rawCall, err := ocpp16json.NewCall(
 		testUniqueId, testAction, nil,
 	)
 	if err != nil {
@@ -130,14 +130,14 @@ func Test_NewRawCall_NilPayload(t *testing.T) {
 	}
 }
 
-// --- RawCall MarshalJSON ---
+// --- Call MarshalJSON ---
 
-func Test_RawCall_MarshalJSON_ProducesValidArray(
+func Test_Call_MarshalJSON_ProducesValidArray(
 	t *testing.T,
 ) {
 	t.Parallel()
 
-	rawCall := ocpp16json.RawCall{
+	rawCall := ocpp16json.Call{
 		UniqueId: testUniqueId,
 		Action:   testAction,
 		Payload:  json.RawMessage(emptyPayload),
@@ -164,12 +164,12 @@ func Test_RawCall_MarshalJSON_ProducesValidArray(
 	}
 }
 
-func Test_RawCall_MarshalJSON_CorrectMessageTypeId(
+func Test_Call_MarshalJSON_CorrectMessageTypeId(
 	t *testing.T,
 ) {
 	t.Parallel()
 
-	rawCall := ocpp16json.RawCall{
+	rawCall := ocpp16json.Call{
 		UniqueId: testUniqueId,
 		Action:   testAction,
 		Payload:  json.RawMessage(emptyPayload),
@@ -188,21 +188,21 @@ func Test_RawCall_MarshalJSON_CorrectMessageTypeId(
 
 	_ = json.Unmarshal(elements[0], &messageTypeId)
 
-	if messageTypeId != uint8(ocpp16json.Call) {
+	if messageTypeId != uint8(ocpp16json.MessageTypeCall) {
 		t.Fatalf(
 			errFmtIntExpGot,
-			ocpp16json.Call,
+			ocpp16json.MessageTypeCall,
 			messageTypeId,
 		)
 	}
 }
 
-func Test_RawCall_MarshalJSON_CorrectUniqueId(
+func Test_Call_MarshalJSON_CorrectUniqueId(
 	t *testing.T,
 ) {
 	t.Parallel()
 
-	rawCall := ocpp16json.RawCall{
+	rawCall := ocpp16json.Call{
 		UniqueId: testUniqueId,
 		Action:   testAction,
 		Payload:  json.RawMessage(emptyPayload),

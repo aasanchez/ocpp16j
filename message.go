@@ -10,12 +10,12 @@ import (
 type MessageType uint8
 
 const (
-	// Call is MessageTypeId 2 (Client-to-Server request).
-	Call MessageType = 2
-	// CallResult is MessageTypeId 3 (Server-to-Client response).
-	CallResult MessageType = 3
-	// CallError is MessageTypeId 4 (Server-to-Client error).
-	CallError MessageType = 4
+	// MessageTypeCall is MessageTypeId 2 (CALL).
+	MessageTypeCall MessageType = 2
+	// MessageTypeCallResult is MessageTypeId 3 (CALLRESULT).
+	MessageTypeCallResult MessageType = 3
+	// MessageTypeCallError is MessageTypeId 4 (CALLERROR).
+	MessageTypeCallError MessageType = 4
 )
 
 const (
@@ -41,27 +41,27 @@ type Message interface {
 
 // IsCall reports whether the message is a Call (MessageTypeId 2).
 func IsCall(message Message) bool {
-	return message.MessageType() == Call
+	return message.MessageType() == MessageTypeCall
 }
 
 // IsCallResult reports whether the message is a CallResult
 // (MessageTypeId 3).
 func IsCallResult(message Message) bool {
-	return message.MessageType() == CallResult
+	return message.MessageType() == MessageTypeCallResult
 }
 
 // IsCallError reports whether the message is a CallError
 // (MessageTypeId 4).
 func IsCallError(message Message) bool {
-	return message.MessageType() == CallError
+	return message.MessageType() == MessageTypeCallError
 }
 
-// AsRawCall extracts the RawCall from a Message, or returns
-// errMessageNotCall if the message is not a RawCall.
-func AsRawCall(message Message) (RawCall, error) {
-	rawCall, isRawCall := message.(RawCall)
-	if !isRawCall {
-		return RawCall{}, errMessageNotCall
+// AsCall extracts the Call from a Message, or returns
+// errMessageNotCall if the message is not a Call.
+func AsCall(message Message) (Call, error) {
+	rawCall, isCall := message.(Call)
+	if !isCall {
+		return Call{}, errMessageNotCall
 	}
 
 	return rawCall, nil
@@ -110,7 +110,7 @@ func decodeMessageType(
 	messageType := MessageType(code)
 
 	switch messageType {
-	case Call, CallResult, CallError:
+	case MessageTypeCall, MessageTypeCallResult, MessageTypeCallError:
 		return messageType, nil
 	default:
 		return invalidTypeCode, ErrUnsupportedMessageType

@@ -16,7 +16,7 @@ func ExampleParse_unknownActionCallError() {
 	)
 
 	message, _ := ocpp16json.Parse(wire)
-	rawCall, _ := ocpp16json.AsRawCall(message)
+	rawCall, _ := ocpp16json.AsCall(message)
 
 	registry := ocpp16json.NewRegistry()
 
@@ -24,7 +24,7 @@ func ExampleParse_unknownActionCallError() {
 		rawCall.Action, rawCall.Payload,
 	)
 
-	callError, _ := ocpp16json.NewRawCallError(
+	callError, _ := ocpp16json.NewCallError(
 		rawCall.UniqueId,
 		ocpp16json.NotImplemented,
 		decodeErr.Error(),

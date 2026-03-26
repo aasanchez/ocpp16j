@@ -7,14 +7,14 @@ import (
 	ocpp16json "github.com/aasanchez/ocpp16j"
 )
 
-func ExampleNewRawCallResult() {
+func ExampleNewCallResult() {
 	uniqueId, _ := ocpp16json.NewUniqueId("19223201")
 
 	payload := map[string]string{
 		"status": "Accepted",
 	}
 
-	result, err := ocpp16json.NewRawCallResult(
+	result, err := ocpp16json.NewCallResult(
 		uniqueId, payload,
 	)
 	if err != nil {

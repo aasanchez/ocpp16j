@@ -23,7 +23,7 @@ func ExampleParse_heartbeatRequest() {
 		return
 	}
 
-	rawCall, _ := ocpp16json.AsRawCall(message)
+	rawCall, _ := ocpp16json.AsCall(message)
 
 	registry := ocpp16json.NewRegistry()
 
@@ -57,7 +57,7 @@ func ExampleParse_heartbeatResponse() {
 		"currentTime": "2024-01-15T10:30:00Z",
 	}
 
-	callResult, _ := ocpp16json.NewRawCallResult(
+	callResult, _ := ocpp16json.NewCallResult(
 		uniqueId, payload,
 	)
 

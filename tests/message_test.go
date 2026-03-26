@@ -32,11 +32,11 @@ const (
 func Test_Call_Equals_2(t *testing.T) {
 	t.Parallel()
 
-	if ocpp16json.Call != expectedCall {
+	if ocpp16json.MessageTypeCall != expectedCall {
 		t.Fatalf(
 			errFmtIntExpGot,
 			expectedCall,
-			ocpp16json.Call,
+			ocpp16json.MessageTypeCall,
 		)
 	}
 }
@@ -44,11 +44,11 @@ func Test_Call_Equals_2(t *testing.T) {
 func Test_CallResult_Equals_3(t *testing.T) {
 	t.Parallel()
 
-	if ocpp16json.CallResult != expectedCallResult {
+	if ocpp16json.MessageTypeCallResult != expectedCallResult {
 		t.Fatalf(
 			errFmtIntExpGot,
 			expectedCallResult,
-			ocpp16json.CallResult,
+			ocpp16json.MessageTypeCallResult,
 		)
 	}
 }
@@ -56,11 +56,11 @@ func Test_CallResult_Equals_3(t *testing.T) {
 func Test_CallError_Equals_4(t *testing.T) {
 	t.Parallel()
 
-	if ocpp16json.CallError != expectedCallError {
+	if ocpp16json.MessageTypeCallError != expectedCallError {
 		t.Fatalf(
 			errFmtIntExpGot,
 			expectedCallError,
-			ocpp16json.CallError,
+			ocpp16json.MessageTypeCallError,
 		)
 	}
 }
@@ -79,10 +79,10 @@ func Test_DecodedCall_MessageType_ReturnsCall(
 		t.Fatalf(errFmtNilGot, err)
 	}
 
-	if decodedCall.MessageType() != ocpp16json.Call {
+	if decodedCall.MessageType() != ocpp16json.MessageTypeCall {
 		t.Fatalf(
 			errFmtIntExpGot,
-			ocpp16json.Call,
+			ocpp16json.MessageTypeCall,
 			decodedCall.MessageType(),
 		)
 	}
@@ -136,10 +136,10 @@ func Test_DecodedCallResult_MessageType_ReturnsCallResult(
 		t.Fatalf(errFmtNilGot, err)
 	}
 
-	if decodedCallResult.MessageType() != ocpp16json.CallResult {
+	if decodedCallResult.MessageType() != ocpp16json.MessageTypeCallResult {
 		t.Fatalf(
 			errFmtIntExpGot,
-			ocpp16json.CallResult,
+			ocpp16json.MessageTypeCallResult,
 			decodedCallResult.MessageType(),
 		)
 	}
@@ -181,17 +181,17 @@ func Test_DecodedCallResult_EmptyAction_ReturnsError(
 
 // --- IsCall ---
 
-func Test_IsCall_RawCall_ReturnsTrue(t *testing.T) {
+func Test_IsCall_Call_ReturnsTrue(t *testing.T) {
 	t.Parallel()
 
-	rawCall := ocpp16json.RawCall{
+	rawCall := ocpp16json.Call{
 		UniqueId: testUniqueId,
 		Action:   testAction,
 		Payload:  json.RawMessage(emptyPayload),
 	}
 
 	if !ocpp16json.IsCall(rawCall) {
-		t.Fatal("expected IsCall to return true for RawCall")
+		t.Fatal("expected IsCall to return true for Call")
 	}
 }
 
@@ -212,36 +212,36 @@ func Test_IsCall_DecodedCall_ReturnsTrue(t *testing.T) {
 	}
 }
 
-func Test_IsCall_RawCallResult_ReturnsFalse(t *testing.T) {
+func Test_IsCall_CallResult_ReturnsFalse(t *testing.T) {
 	t.Parallel()
 
-	rawCallResult := ocpp16json.RawCallResult{
+	rawCallResult := ocpp16json.CallResult{
 		UniqueId: testUniqueId,
 		Payload:  json.RawMessage(emptyPayload),
 	}
 
 	if ocpp16json.IsCall(rawCallResult) {
 		t.Fatal(
-			"expected IsCall false for RawCallResult",
+			"expected IsCall false for CallResult",
 		)
 	}
 }
 
 // --- IsCallResult ---
 
-func Test_IsCallResult_RawCallResult_ReturnsTrue(
+func Test_IsCallResult_CallResult_ReturnsTrue(
 	t *testing.T,
 ) {
 	t.Parallel()
 
-	rawCallResult := ocpp16json.RawCallResult{
+	rawCallResult := ocpp16json.CallResult{
 		UniqueId: testUniqueId,
 		Payload:  json.RawMessage(emptyPayload),
 	}
 
 	if !ocpp16json.IsCallResult(rawCallResult) {
 		t.Fatal(
-			"expected IsCallResult true for RawCallResult",
+			"expected IsCallResult true for CallResult",
 		)
 	}
 }
@@ -265,10 +265,10 @@ func Test_IsCallResult_DecodedCallResult_ReturnsTrue(
 	}
 }
 
-func Test_IsCallResult_RawCall_ReturnsFalse(t *testing.T) {
+func Test_IsCallResult_Call_ReturnsFalse(t *testing.T) {
 	t.Parallel()
 
-	rawCall := ocpp16json.RawCall{
+	rawCall := ocpp16json.Call{
 		UniqueId: testUniqueId,
 		Action:   testAction,
 		Payload:  json.RawMessage(emptyPayload),
@@ -276,19 +276,19 @@ func Test_IsCallResult_RawCall_ReturnsFalse(t *testing.T) {
 
 	if ocpp16json.IsCallResult(rawCall) {
 		t.Fatal(
-			"expected IsCallResult false for RawCall",
+			"expected IsCallResult false for Call",
 		)
 	}
 }
 
 // --- IsCallError ---
 
-func Test_IsCallError_RawCallError_ReturnsTrue(
+func Test_IsCallError_CallError_ReturnsTrue(
 	t *testing.T,
 ) {
 	t.Parallel()
 
-	rawCallError := ocpp16json.RawCallError{
+	rawCallError := ocpp16json.CallError{
 		UniqueId:         testUniqueId,
 		ErrorCode:        testErrorCode,
 		ErrorDescription: testErrorDesc,
@@ -297,15 +297,15 @@ func Test_IsCallError_RawCallError_ReturnsTrue(
 
 	if !ocpp16json.IsCallError(rawCallError) {
 		t.Fatal(
-			"expected IsCallError true for RawCallError",
+			"expected IsCallError true for CallError",
 		)
 	}
 }
 
-func Test_IsCallError_RawCall_ReturnsFalse(t *testing.T) {
+func Test_IsCallError_Call_ReturnsFalse(t *testing.T) {
 	t.Parallel()
 
-	rawCall := ocpp16json.RawCall{
+	rawCall := ocpp16json.Call{
 		UniqueId: testUniqueId,
 		Action:   testAction,
 		Payload:  json.RawMessage(emptyPayload),
@@ -313,23 +313,23 @@ func Test_IsCallError_RawCall_ReturnsFalse(t *testing.T) {
 
 	if ocpp16json.IsCallError(rawCall) {
 		t.Fatal(
-			"expected IsCallError false for RawCall",
+			"expected IsCallError false for Call",
 		)
 	}
 }
 
-// --- AsRawCall ---
+// --- AsCall ---
 
-func Test_AsRawCall_RawCall_ReturnsValue(t *testing.T) {
+func Test_AsCall_Call_ReturnsValue(t *testing.T) {
 	t.Parallel()
 
-	rawCall := ocpp16json.RawCall{
+	rawCall := ocpp16json.Call{
 		UniqueId: testUniqueId,
 		Action:   testAction,
 		Payload:  json.RawMessage(emptyPayload),
 	}
 
-	result, err := ocpp16json.AsRawCall(rawCall)
+	result, err := ocpp16json.AsCall(rawCall)
 	if err != nil {
 		t.Fatalf(errFmtNilGot, err)
 	}
@@ -343,17 +343,17 @@ func Test_AsRawCall_RawCall_ReturnsValue(t *testing.T) {
 	}
 }
 
-func Test_AsRawCall_RawCallResult_ReturnsError(
+func Test_AsCall_CallResult_ReturnsError(
 	t *testing.T,
 ) {
 	t.Parallel()
 
-	rawCallResult := ocpp16json.RawCallResult{
+	rawCallResult := ocpp16json.CallResult{
 		UniqueId: testUniqueId,
 		Payload:  json.RawMessage(emptyPayload),
 	}
 
-	_, err := ocpp16json.AsRawCall(rawCallResult)
+	_, err := ocpp16json.AsCall(rawCallResult)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

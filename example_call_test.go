@@ -7,14 +7,14 @@ import (
 	ocpp16json "github.com/aasanchez/ocpp16j"
 )
 
-func ExampleNewRawCall() {
+func ExampleNewCall() {
 	uniqueId, _ := ocpp16json.NewUniqueId("19223201")
 
 	payload := map[string]string{
 		"idTag": "RFID-001",
 	}
 
-	rawCall, err := ocpp16json.NewRawCall(
+	rawCall, err := ocpp16json.NewCall(
 		uniqueId, "Authorize", payload,
 	)
 	if err != nil {

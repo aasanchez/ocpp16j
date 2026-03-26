@@ -2,33 +2,33 @@ package ocpp16json
 
 import "encoding/json"
 
-// RawCall represents a parsed CALL message (MessageTypeId 2)
+// Call represents a parsed CALL message (MessageTypeId 2)
 // with an undecoded Payload.
-type RawCall struct {
+type Call struct {
 	UniqueId UniqueId
 	Action   string
 	Payload  json.RawMessage
 }
 
-// NewRawCall creates a CALL message (MessageTypeId 2). It
+// NewCall creates a CALL message (MessageTypeId 2). It
 // validates Action and marshals the payload to
 // json.RawMessage.
-func NewRawCall(
+func NewCall(
 	uniqueId UniqueId,
 	action string,
 	payload any,
-) (RawCall, error) {
+) (Call, error) {
 	validationErr := validateAction(action)
 	if validationErr != nil {
-		return RawCall{}, validationErr
+		return Call{}, validationErr
 	}
 
 	rawPayload, marshalErr := marshalPayload(payload)
 	if marshalErr != nil {
-		return RawCall{}, marshalErr
+		return Call{}, marshalErr
 	}
 
-	return RawCall{
+	return Call{
 		UniqueId: uniqueId,
 		Action:   action,
 		Payload:  rawPayload,
@@ -36,20 +36,20 @@ func NewRawCall(
 }
 
 // MessageType returns the Call MessageTypeId (2).
-func (RawCall) MessageType() MessageType {
-	return Call
+func (Call) MessageType() MessageType {
+	return MessageTypeCall
 }
 
 // MessageId returns the UniqueId correlation identifier.
-func (rawCall RawCall) MessageId() string {
+func (rawCall Call) MessageId() string {
 	return rawCall.UniqueId.String()
 }
 
 // MarshalJSON serializes a CALL to its canonical OCPP-J array:
 // [2, "<UniqueId>", "<Action>", {<Payload>}]
-func (rawCall RawCall) MarshalJSON() ([]byte, error) {
+func (rawCall Call) MarshalJSON() ([]byte, error) {
 	return marshalJSONArray(
-		Call,
+		MessageTypeCall,
 		rawCall.UniqueId.String(),
 		rawCall.Action,
 		rawCall.Payload,

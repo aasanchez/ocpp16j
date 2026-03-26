@@ -14,8 +14,8 @@ const (
 
 // Parse decodes raw bytes into a typed OCPP-J message. It
 // validates the message wrapper (MessageTypeId, UniqueId,
-// Action, Payload) and returns a RawCall, RawCallResult, or
-// RawCallError. Payload contents are not decoded — they are
+// Action, Payload) and returns a Call, CallResult, or
+// CallError. Payload contents are not decoded — they are
 // preserved as json.RawMessage for later processing.
 //
 //nolint:ireturn // Concrete type depends on input.
@@ -41,9 +41,9 @@ func Parse(data []byte) (Message, error) {
 	}
 
 	switch messageType { //nolint:exhaustive // guarded by decodeMessageType.
-	case Call:
+	case MessageTypeCall:
 		return parseCall(elements)
-	case CallResult:
+	case MessageTypeCallResult:
 		return parseCallResult(elements)
 	default:
 		return parseCallError(elements)
@@ -52,26 +52,26 @@ func Parse(data []byte) (Message, error) {
 
 func parseCall(
 	elements []json.RawMessage,
-) (RawCall, error) {
+) (Call, error) {
 	if len(elements) != callLength {
-		return RawCall{}, ErrInvalidMessage
+		return Call{}, ErrInvalidMessage
 	}
 
 	uniqueId, idErr := decodeUniqueId(
 		elements[uniqueIdIndex],
 	)
 	if idErr != nil {
-		return RawCall{}, idErr
+		return Call{}, idErr
 	}
 
 	action, actionErr := decodeString(
 		elements[callActionIndex], ErrInvalidAction,
 	)
 	if actionErr != nil {
-		return RawCall{}, actionErr
+		return Call{}, actionErr
 	}
 
-	return RawCall{
+	return Call{
 		UniqueId: uniqueId,
 		Action:   action,
 		Payload:  elements[callPayloadIndex],
@@ -80,19 +80,19 @@ func parseCall(
 
 func parseCallResult(
 	elements []json.RawMessage,
-) (RawCallResult, error) {
+) (CallResult, error) {
 	if len(elements) != callResultLength {
-		return RawCallResult{}, ErrInvalidMessage
+		return CallResult{}, ErrInvalidMessage
 	}
 
 	uniqueId, idErr := decodeUniqueId(
 		elements[uniqueIdIndex],
 	)
 	if idErr != nil {
-		return RawCallResult{}, idErr
+		return CallResult{}, idErr
 	}
 
-	return RawCallResult{
+	return CallResult{
 		UniqueId: uniqueId,
 		Payload:  elements[callResultPayloadIndex],
 	}, nil
@@ -100,40 +100,40 @@ func parseCallResult(
 
 func parseCallError(
 	elements []json.RawMessage,
-) (RawCallError, error) {
+) (CallError, error) {
 	if len(elements) != callErrorLength {
-		return RawCallError{}, ErrInvalidMessage
+		return CallError{}, ErrInvalidMessage
 	}
 
 	uniqueId, idErr := decodeUniqueId(
 		elements[uniqueIdIndex],
 	)
 	if idErr != nil {
-		return RawCallError{}, idErr
+		return CallError{}, idErr
 	}
 
 	errorCode, codeErr := decodeErrorCode(
 		elements[errorCodeIndex],
 	)
 	if codeErr != nil {
-		return RawCallError{}, codeErr
+		return CallError{}, codeErr
 	}
 
 	errorDescription, descErr := decodeErrorDescription(
 		elements[errorDescIndex],
 	)
 	if descErr != nil {
-		return RawCallError{}, descErr
+		return CallError{}, descErr
 	}
 
 	errorDetails, detailsErr := decodeErrorDetails(
 		elements[callErrorDetailsIndex],
 	)
 	if detailsErr != nil {
-		return RawCallError{}, detailsErr
+		return CallError{}, detailsErr
 	}
 
-	return RawCallError{
+	return CallError{
 		UniqueId:         uniqueId,
 		ErrorCode:        errorCode,
 		ErrorDescription: errorDescription,

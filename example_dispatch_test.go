@@ -30,7 +30,7 @@ func ExampleParse_dispatch() {
 	// CallError?
 	switch {
 	case ocpp16json.IsCall(message):
-		rawCall, _ := ocpp16json.AsRawCall(message)
+		rawCall, _ := ocpp16json.AsCall(message)
 
 		fmt.Println("Received CALL")
 		fmt.Println("Action:", rawCall.Action)
