@@ -12,16 +12,16 @@ import (
 // spec Table 7.
 func validCodes() map[string]bool {
 	return map[string]bool{
-		"NotImplemented":              true,
-		"NotSupported":                true,
-		"InternalError":               true,
-		"ProtocolError":               true,
-		"SecurityError":               true,
-		"FormationViolation":          true,
-		"PropertyConstraintViolation": true,
+		"NotImplemented":               true,
+		"NotSupported":                 true,
+		"InternalError":                true,
+		"ProtocolError":                true,
+		"SecurityError":                true,
+		"FormationViolation":           true,
+		"PropertyConstraintViolation":  true,
 		"OccurenceConstraintViolation": true,
-		"TypeConstraintViolation":     true,
-		"GenericError":                true,
+		"TypeConstraintViolation":      true,
+		"GenericError":                 true,
 	}
 }
 
