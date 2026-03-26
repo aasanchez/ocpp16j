@@ -14,29 +14,29 @@ const (
 	totalErrorCodes  = 10
 )
 
-// allErrorCodes lists every valid ErrorCode from Table 7.
-//
-//nolint:gochecknoglobals // Test-only typed slice.
-var allErrorCodes = []ocpp16json.ErrorCode{
-	ocpp16json.NotImplemented,
-	ocpp16json.NotSupported,
-	ocpp16json.InternalError,
-	ocpp16json.ProtocolError,
-	ocpp16json.SecurityError,
-	ocpp16json.FormationViolation,
-	ocpp16json.PropertyConstraintViolation,
-	ocpp16json.OccurenceConstraintViolation,
-	ocpp16json.TypeConstraintViolation,
-	ocpp16json.GenericError,
+func allErrorCodes() []ocpp16json.ErrorCode {
+	return []ocpp16json.ErrorCode{
+		ocpp16json.NotImplemented,
+		ocpp16json.NotSupported,
+		ocpp16json.InternalError,
+		ocpp16json.ProtocolError,
+		ocpp16json.SecurityError,
+		ocpp16json.FormationViolation,
+		ocpp16json.PropertyConstraintViolation,
+		ocpp16json.OccurenceConstraintViolation,
+		ocpp16json.TypeConstraintViolation,
+		ocpp16json.GenericError,
+	}
 }
 
 func Test_ErrorCode_AllTenConstantsExist(t *testing.T) {
 	t.Parallel()
 
-	if len(allErrorCodes) != totalErrorCodes {
+	codes := allErrorCodes()
+	if len(codes) != totalErrorCodes {
 		t.Fatalf(
 			"expected %d error codes, got %d",
-			totalErrorCodes, len(allErrorCodes),
+			totalErrorCodes, len(codes),
 		)
 	}
 }
@@ -46,7 +46,7 @@ func Test_ErrorCode_AllConstantsAreDistinct(t *testing.T) {
 
 	seen := make(map[ocpp16json.ErrorCode]bool)
 
-	for _, code := range allErrorCodes {
+	for _, code := range allErrorCodes() {
 		if seen[code] {
 			t.Fatalf("duplicate error code: %q", code)
 		}
@@ -58,7 +58,7 @@ func Test_ErrorCode_AllConstantsAreDistinct(t *testing.T) {
 func Test_NewErrorCode_AllValidCodesAccepted(t *testing.T) {
 	t.Parallel()
 
-	for _, expected := range allErrorCodes {
+	for _, expected := range allErrorCodes() {
 		code, err := ocpp16json.NewErrorCode(
 			expected.String(),
 		)

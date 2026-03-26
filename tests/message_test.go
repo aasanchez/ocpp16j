@@ -12,18 +12,14 @@ const (
 	expectedCallResult ocpp16json.MessageType = 3
 	expectedCallError  ocpp16json.MessageType = 4
 	testUniqueIdStr                           = "19223201"
+	testUniqueId       ocpp16json.UniqueId    = testUniqueIdStr
 	testAction                                = "Authorize"
+	testErrorCode      ocpp16json.ErrorCode   = "NotImplemented"
 	testErrorDesc                             = "Unknown action"
 	emptyPayload                              = `{}`
 	errFmtIntExpGot                           = "expected %d, got %d"
 	errFmtStrExpGot                           = "expected %q, got %q"
 	errFmtNilGot                              = "expected nil error, got %v"
-)
-
-//nolint:gochecknoglobals // Test-only typed values.
-var (
-	testUniqueId  = ocpp16json.UniqueId(testUniqueIdStr)
-	testErrorCode = ocpp16json.NotImplemented
 )
 
 func Test_Call_Equals_2(t *testing.T) {

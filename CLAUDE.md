@@ -168,7 +168,7 @@ provide it explicitly when decoding.
 
 golangci-lint config is in `golangci.yml`. Key settings:
 
-- All linters enabled except: `wsl`, `testpackage`, `godot`, `ireturn`
+- All linters enabled except: `wsl`, `testpackage`, `godot`
 - `wsl_v5` enabled instead of `wsl`
 - `depguard`: only stdlib + `github.com/aasanchez/ocpp16j` +
   `github.com/aasanchez/ocpp16messages` allowed
