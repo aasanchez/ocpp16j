@@ -122,11 +122,11 @@ CallError:  [<MessageTypeId>, "<UniqueId>", "<ErrorCode>",
 
 Every spec concept with constraints is a first-class Go type:
 
-| Type | Underlying | Constraint | Spec Reference |
-|------|-----------|------------|----------------|
-| `MessageType` | `uint8` | Values 2, 3, 4 | Table 2 |
-| `UniqueId` | `string` | Max 36 characters | Table 3 |
-| `ErrorCode` | `string` | 10 valid values | Table 7 |
+| Type          | Underlying | Constraint        | Spec Reference |
+|---------------|------------|-------------------|----------------|
+| `MessageType` | `uint8`    | Values 2, 3, 4    | Table 2        |
+| `UniqueId`    | `string`   | Max 36 characters | Table 3        |
+| `ErrorCode`   | `string`   | 10 valid values   | Table 7        |
 
 ### ErrorCode Constants (Table 7)
 
