@@ -1,0 +1,138 @@
+# CLAUDE.md
+
+## Project Overview
+
+OCPP 1.6 JSON transport layer for Go (`github.com/aasanchez/ocpp16j`).
+Handles wire-format correctness only: parsing, marshaling, and validating
+OCPP-J JSON frame envelopes. Delegates all message-level validation to
+`github.com/aasanchez/ocpp16messages`. This is a library with no binary
+build target.
+
+## Prerequisites
+
+- Go >= 1.24
+- Tools: golangci-lint, staticcheck, gci, gofumpt, golines
+
+## Common Commands
+
+```sh
+go mod tidy                        # Resolve dependencies
+go build ./...                     # Build all packages
+go test -v ./...                   # Run all tests verbose
+go test -race ./...                # Run with race detector
+go test -cover ./...               # Show coverage percentage
+go test -run TestSpecificName ./.. # Run a single test
+go vet ./...                       # Static analysis
+make lint                          # golangci-lint + go vet + staticcheck
+make format                        # gci + gofumpt + golines + gofmt
+make test                          # Unit and example tests with coverage
+```
+
+## Architecture
+
+This package sits between raw WebSocket bytes and
+`github.com/aasanchez/ocpp16messages`. It owns:
+
+- **Frame parsing**: `Parse([]byte) (Frame, error)` — validates the JSON
+  array envelope, extracts message type, unique ID, action, and raw payload
+- **Frame marshaling**: `MarshalJSON()` on frame types — serializes back
+  to canonical OCPP-J arrays
+- **Payload decoding**: `JSONDecoder` adapter bridging raw JSON to
+  `ocpp16messages` constructors via a thread-safe `Registry`
+- **Error vocabulary**: sentinel errors for every failure mode
+
+### OCPP-J Wire Format
+
+```text
+CALL:       [2, "uniqueId", "Action", {payload}]
+CALLRESULT: [3, "uniqueId", {payload}]
+CALLERROR:  [4, "uniqueId", "errorCode", "errorDescription", {details}]
+```
+
+CALLRESULT does not carry the action name on the wire — the caller must
+provide it explicitly when decoding.
+
+## Go Code Style
+
+### General
+
+- Line length: 80 characters max (enforced by revive)
+- Cognitive complexity: max 7 per function (enforced by revive)
+- Indentation: tabs for Go files (gofmt convention)
+- Always run `make format` before committing
+
+### Imports
+
+- Managed by gci: stdlib first, then project modules, then third-party
+- No unused imports
+- Prefer full package names over aliases for readability
+- Use short aliases only for name conflicts or to stay under 80 chars
+
+### Naming
+
+- Exported identifiers: PascalCase
+- Acronyms stay uppercase (`ID` not `Id`) — except where revive
+  var-naming allowlist permits (e.g., `Id` in OCPP field names)
+- Constructors: `New` prefix (`NewRegistry`, `NewFoo`)
+- Getters: no `Get` prefix — use `Value()` not `GetValue()`
+- Variable names must be descriptive (enforced by varnamelen) — avoid
+  single-letter names like `p`, `id`; use `purposeType`, `profileId`
+
+### Error Handling
+
+- Never panic in library code
+- Wrap errors with context: `fmt.Errorf("context: %w", err)`
+- Use sentinel errors from `errors.go` — check with `errors.Is()`
+- Do not create helper functions that just wrap `fmt.Errorf`
+- Accumulate multiple validation errors with `errors.Join()` when a
+  constructor validates several fields
+
+### Type Design
+
+- All constructors return `(T, error)` — no separate `Validate()` methods
+- Value receivers and immutable fields for thread safety
+- Use `json.RawMessage` for payloads that will be decoded later
+- Generics for decoder adapters: `JSONDecoder[Input, Output any]`
+
+## Testing
+
+### Organization
+
+- **Same-package tests** (`package ocpp16json`): for testing unexported
+  functions and internals
+- **External tests** (`package ocpp16json_test` in `tests/`): black-box
+  tests for the public API
+- **Example tests** (`example_*_test.go`): executable documentation for
+  public constructors and complex APIs — skip for simple getters
+
+### Rules
+
+- Write atomic, individual test functions — each tests ONE behavior
+- Every test must call `t.Parallel()`
+- Use named constants instead of magic numbers in tests
+- Use descriptive variable names (not `p`, `id`)
+- Fuzz tests go in `tests_fuzz/` with `//go:build fuzz` tag
+- Race tests go in `tests_race/` with `//go:build race` tag
+
+### Test Naming
+
+- Unit tests: `Test_<Function>_<Case>` or `Test<Type>_<Method>_<Case>`
+- Example tests: `Example<Function>` or `Example<Type>_<method>`
+- Subtests: descriptive suffixes
+
+## Linting
+
+golangci-lint config is in `golangci.yml`. Key settings:
+
+- All linters enabled except: `wsl`, `testpackage`, `godot`, `ireturn`
+- `wsl_v5` enabled instead of `wsl`
+- `depguard`: only stdlib + `github.com/aasanchez/ocpp16j` +
+  `github.com/aasanchez/ocpp16messages` allowed
+- `exhaustruct`: all struct fields must be explicitly initialized
+- Reports written to `reports/`
+
+## Dependencies
+
+- `github.com/aasanchez/ocpp16messages v1.0.3` — OCPP 1.6 message types
+  with `Req()`/`Conf()` constructors and validation
+- Standard library only beyond that — zero third-party dependencies
