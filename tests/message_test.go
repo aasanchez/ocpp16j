@@ -7,6 +7,9 @@ import (
 	ocpp16json "github.com/aasanchez/ocpp16j"
 )
 
+// Shared test constants used across all test files in this
+// package. Defined here because message_test.go is the
+// foundational test file.
 const (
 	expectedCall       ocpp16json.MessageType = 2
 	expectedCallResult ocpp16json.MessageType = 3
@@ -20,7 +23,11 @@ const (
 	errFmtIntExpGot                           = "expected %d, got %d"
 	errFmtStrExpGot                           = "expected %q, got %q"
 	errFmtNilGot                              = "expected nil error, got %v"
+	errFmtExpErrGot                           = "expected %v, got %v"
+	errFmtElementCount                        = "expected %d elements, got %d"
 )
+
+// --- MessageType constants ---
 
 func Test_Call_Equals_2(t *testing.T) {
 	t.Parallel()
@@ -54,128 +61,6 @@ func Test_CallError_Equals_4(t *testing.T) {
 			errFmtIntExpGot,
 			expectedCallError,
 			ocpp16json.CallError,
-		)
-	}
-}
-
-// --- RawCall ---
-
-func Test_RawCall_MessageType_ReturnsCall(t *testing.T) {
-	t.Parallel()
-
-	rawCall := ocpp16json.RawCall{
-		UniqueId: testUniqueId,
-		Action:   testAction,
-		Payload:  json.RawMessage(emptyPayload),
-	}
-
-	if rawCall.MessageType() != ocpp16json.Call {
-		t.Fatalf(
-			errFmtIntExpGot,
-			ocpp16json.Call,
-			rawCall.MessageType(),
-		)
-	}
-}
-
-func Test_RawCall_MessageId_ReturnsValue(t *testing.T) {
-	t.Parallel()
-
-	rawCall := ocpp16json.RawCall{
-		UniqueId: testUniqueId,
-		Action:   testAction,
-		Payload:  json.RawMessage(emptyPayload),
-	}
-
-	if rawCall.MessageId() != testUniqueIdStr {
-		t.Fatalf(
-			errFmtStrExpGot,
-			testUniqueId,
-			rawCall.MessageId(),
-		)
-	}
-}
-
-// --- RawCallResult ---
-
-func Test_RawCallResult_MessageType_ReturnsCallResult(
-	t *testing.T,
-) {
-	t.Parallel()
-
-	rawCallResult := ocpp16json.RawCallResult{
-		UniqueId: testUniqueId,
-		Payload:  json.RawMessage(emptyPayload),
-	}
-
-	if rawCallResult.MessageType() != ocpp16json.CallResult {
-		t.Fatalf(
-			errFmtIntExpGot,
-			ocpp16json.CallResult,
-			rawCallResult.MessageType(),
-		)
-	}
-}
-
-func Test_RawCallResult_MessageId_ReturnsValue(
-	t *testing.T,
-) {
-	t.Parallel()
-
-	rawCallResult := ocpp16json.RawCallResult{
-		UniqueId: testUniqueId,
-		Payload:  json.RawMessage(emptyPayload),
-	}
-
-	if rawCallResult.MessageId() != testUniqueIdStr {
-		t.Fatalf(
-			errFmtStrExpGot,
-			testUniqueId,
-			rawCallResult.MessageId(),
-		)
-	}
-}
-
-// --- RawCallError ---
-
-func Test_RawCallError_MessageType_ReturnsCallError(
-	t *testing.T,
-) {
-	t.Parallel()
-
-	rawCallError := ocpp16json.RawCallError{
-		UniqueId:         testUniqueId,
-		ErrorCode:        testErrorCode,
-		ErrorDescription: testErrorDesc,
-		ErrorDetails:     map[string]any{},
-	}
-
-	if rawCallError.MessageType() != ocpp16json.CallError {
-		t.Fatalf(
-			errFmtIntExpGot,
-			ocpp16json.CallError,
-			rawCallError.MessageType(),
-		)
-	}
-}
-
-func Test_RawCallError_MessageId_ReturnsValue(
-	t *testing.T,
-) {
-	t.Parallel()
-
-	rawCallError := ocpp16json.RawCallError{
-		UniqueId:         testUniqueId,
-		ErrorCode:        testErrorCode,
-		ErrorDescription: testErrorDesc,
-		ErrorDetails:     map[string]any{},
-	}
-
-	if rawCallError.MessageId() != testUniqueIdStr {
-		t.Fatalf(
-			errFmtStrExpGot,
-			testUniqueId,
-			rawCallError.MessageId(),
 		)
 	}
 }
