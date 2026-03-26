@@ -177,6 +177,6 @@ golangci-lint config is in `golangci.yml`. Key settings:
 
 ## Dependencies
 
-- `github.com/aasanchez/ocpp16messages v1.0.3` — OCPP 1.6 message
-  types with `Req()`/`Conf()` constructors and validation
+- `github.com/aasanchez/ocpp16messages` (main branch) — OCPP 1.6
+  message types with `Req()`/`Conf()` constructors and validation
 - Standard library only beyond that — zero third-party dependencies

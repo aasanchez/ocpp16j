@@ -23,7 +23,7 @@ validation is delegated to
 
 ### What it does
 
-- Parse raw bytes into typed `RawCall`, `RawCallResult`, or `RawCallError`
+- Parse raw bytes into typed `Call`, `CallResult`, or `CallError`
 - Marshal messages back to canonical OCPP-J arrays
 - Validate the envelope: MessageTypeId, UniqueId, Action, ErrorCode
 - Decode Payloads through a thread-safe `Registry` + `JSONDecoder`
@@ -55,8 +55,8 @@ if err != nil {
 }
 
 if ocpp16json.IsCall(message) {
-    rawCall, _ := ocpp16json.AsRawCall(message)
-    fmt.Println(rawCall.Action)  // "BootNotification"
+    call, _ := ocpp16json.AsCall(message)
+    fmt.Println(call.Action)  // "BootNotification"
 }
 ```
 
@@ -65,12 +65,12 @@ if ocpp16json.IsCall(message) {
 ```go
 uniqueId, _ := ocpp16json.NewUniqueId("19223201")
 
-rawCall, _ := ocpp16json.NewRawCall(
+call, _ := ocpp16json.NewCall(
     uniqueId, "Authorize",
     map[string]string{"idTag": "RFID-001"},
 )
 
-wireBytes, _ := json.Marshal(rawCall)
+wireBytes, _ := json.Marshal(call)
 // wireBytes: [2,"19223201","Authorize",{"idTag":"RFID-001"}]
 ```
 
@@ -85,9 +85,9 @@ registry.Register("BootNotification", decoder)
 
 // Parse and decode in two steps.
 message, _ := ocpp16json.Parse(rawBytes)
-rawCall, _ := ocpp16json.AsRawCall(message)
+call, _ := ocpp16json.AsCall(message)
 
-result, err := registry.Decode(rawCall.Action, rawCall.Payload)
+result, err := registry.Decode(call.Action, call.Payload)
 // result is a bootnotification.ReqMessage with validated fields
 ```
 
@@ -96,7 +96,7 @@ result, err := registry.Decode(rawCall.Action, rawCall.Payload)
 ```go
 uniqueId, _ := ocpp16json.NewUniqueId("req-99")
 
-callError, _ := ocpp16json.NewRawCallError(
+callError, _ := ocpp16json.NewCallError(
     uniqueId,
     ocpp16json.NotImplemented,
     "Requested Action is not known by receiver",

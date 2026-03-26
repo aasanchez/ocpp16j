@@ -18,25 +18,28 @@
 //
 // A common integration flow looks like this:
 //  1. Receive a raw JSON message from the WebSocket transport.
-//  2. Parse it with Parse, or decode it with Registry.DecodeCall.
-//  3. Apply application logic outside this package.
-//  4. Validate the outgoing Payload with ocpp16messages.
-//  5. Wrap the encoded Payload in a CallResult or CallError.
+//  2. Parse it with [Parse] to detect the message type.
+//  3. For a Call, use [AsCall] to extract the Call struct,
+//     then [Registry.Decode] to validate the Payload.
+//  4. Apply application logic outside this package.
+//  5. Build the response with [NewCallResult] or [NewCallError]
+//     and marshal it with [json.Marshal].
 //
 // # CallResult Context
 //
-// OCPP-J CallResult messages do not carry the Action on the wire:
+// OCPP-J CallResult messages do not carry the Action on the
+// wire:
 //
 //	[3, "<UniqueId>", {<Payload>}]
 //
-// Because of that protocol constraint, Registry.DecodeCallResult
-// requires the caller to provide the related Action explicitly.
+// The caller must track which Action a UniqueId corresponds
+// to in order to decode the Payload correctly.
 //
 // # Response Encoding
 //
-// This package validates inbound Payloads by decoding them into
-// typed message values, but outbound Payloads are still normal
-// JSON. A typical pattern is: validate the outgoing response with
-// ocpp16messages, encode the wire Payload, and wrap it in a
-// CallResult.
+// This package validates inbound Payloads by decoding them
+// into typed message values, but outbound Payloads are still
+// normal JSON. A typical pattern is: validate the outgoing
+// response with ocpp16messages, then wrap it in a CallResult
+// using [NewCallResult].
 package ocpp16json
