@@ -36,6 +36,17 @@ func (rawCall RawCall) MessageId() string {
 	return rawCall.UniqueId.String()
 }
 
+// MarshalJSON serializes a CALL to its canonical OCPP-J array:
+// [2, "<UniqueId>", "<Action>", {<Payload>}]
+func (rawCall RawCall) MarshalJSON() ([]byte, error) {
+	return marshalJSONArray(
+		Call,
+		rawCall.UniqueId.String(),
+		rawCall.Action,
+		rawCall.Payload,
+	)
+}
+
 // MessageType returns the CallResult MessageTypeId (3).
 func (RawCallResult) MessageType() MessageType {
 	return CallResult
@@ -46,6 +57,18 @@ func (rawCallResult RawCallResult) MessageId() string {
 	return rawCallResult.UniqueId.String()
 }
 
+// MarshalJSON serializes a CALLRESULT to its canonical
+// OCPP-J array: [3, "<UniqueId>", {<Payload>}]
+func (rawCallResult RawCallResult) MarshalJSON() (
+	[]byte, error,
+) {
+	return marshalJSONArray(
+		CallResult,
+		rawCallResult.UniqueId.String(),
+		rawCallResult.Payload,
+	)
+}
+
 // MessageType returns the CallError MessageTypeId (4).
 func (RawCallError) MessageType() MessageType {
 	return CallError
@@ -54,4 +77,21 @@ func (RawCallError) MessageType() MessageType {
 // MessageId returns the UniqueId correlation identifier.
 func (rawCallError RawCallError) MessageId() string {
 	return rawCallError.UniqueId.String()
+}
+
+// MarshalJSON serializes a CALLERROR to its canonical OCPP-J
+// array:
+// [4, "<UniqueId>", "<ErrorCode>", "<ErrorDescription>",
+//
+//	{<ErrorDetails>}]
+func (rawCallError RawCallError) MarshalJSON() (
+	[]byte, error,
+) {
+	return marshalJSONArray(
+		CallError,
+		rawCallError.UniqueId.String(),
+		rawCallError.ErrorCode.String(),
+		rawCallError.ErrorDescription,
+		rawCallError.ErrorDetails,
+	)
 }

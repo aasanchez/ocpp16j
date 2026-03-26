@@ -228,6 +228,19 @@ func Test_DecodedCall_MessageId_ReturnsValue(
 	}
 }
 
+func Test_DecodedCall_EmptyAction_ReturnsError(
+	t *testing.T,
+) {
+	t.Parallel()
+
+	_, err := ocpp16json.NewDecodedCall[any](
+		testUniqueId, "", nil,
+	)
+	if err == nil {
+		t.Fatal("expected error for empty action, got nil")
+	}
+}
+
 // --- DecodedMessage (CallResult) ---
 
 func Test_DecodedCallResult_MessageType_ReturnsCallResult(
@@ -269,6 +282,19 @@ func Test_DecodedCallResult_MessageId_ReturnsValue(
 			testUniqueId,
 			decodedCallResult.MessageId(),
 		)
+	}
+}
+
+func Test_DecodedCallResult_EmptyAction_ReturnsError(
+	t *testing.T,
+) {
+	t.Parallel()
+
+	_, err := ocpp16json.NewDecodedCallResult[any](
+		testUniqueId, "", nil,
+	)
+	if err == nil {
+		t.Fatal("expected error for empty action, got nil")
 	}
 }
 
