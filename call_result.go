@@ -2,8 +2,13 @@ package ocpp16json
 
 import "encoding/json"
 
-// CallResult represents a parsed CALLRESULT message
-// (MessageTypeId 3) with an undecoded Payload.
+// CallResult represents a CALLRESULT message
+// (MessageTypeId 3) as defined in OCPP-J 1.6
+// specification section 4.2.2. A CallResult consists of
+// 3 elements: MessageTypeId, UniqueId, and Payload.
+// Note that the Action is not present on the wire — the
+// caller must track which Action the UniqueId corresponds
+// to in order to decode the Payload.
 type CallResult struct {
 	UniqueId UniqueId
 	Payload  json.RawMessage
@@ -11,7 +16,8 @@ type CallResult struct {
 
 // NewCallResult creates a CALLRESULT message
 // (MessageTypeId 3). It marshals the payload to
-// json.RawMessage.
+// [json.RawMessage]. The UniqueId MUST match the
+// UniqueId of the original [Call] being responded to.
 func NewCallResult(
 	uniqueId UniqueId,
 	payload any,

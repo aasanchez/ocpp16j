@@ -1,8 +1,11 @@
 package ocpp16json
 
-// DecodedMessage represents a CALL or CALLRESULT message whose
-// Payload has been decoded into a typed value by a registered
-// PayloadDecoder.
+// DecodedMessage represents a CALL or CALLRESULT message
+// whose Payload has been decoded into a typed value T by a
+// registered [PayloadDecoder]. Unlike [Call] and
+// [CallResult] which carry the Payload as raw JSON, a
+// DecodedMessage holds the validated domain object
+// produced by an ocpp16messages constructor.
 type DecodedMessage[T any] struct {
 	messageType MessageType
 	UniqueId    UniqueId
@@ -10,8 +13,10 @@ type DecodedMessage[T any] struct {
 	Payload     T
 }
 
-// NewDecodedCall creates a DecodedMessage with MessageTypeId 2
-// (Call). It validates that UniqueId and Action are non-empty.
+// NewDecodedCall creates a DecodedMessage with
+// MessageTypeId 2 (CALL). It validates that Action is
+// non-empty. The UniqueId must already be validated via
+// [NewUniqueId].
 func NewDecodedCall[T any](
 	uniqueId UniqueId,
 	action string,
@@ -31,8 +36,9 @@ func NewDecodedCall[T any](
 }
 
 // NewDecodedCallResult creates a DecodedMessage with
-// MessageTypeId 3 (CallResult). It validates that UniqueId and
-// Action are non-empty.
+// MessageTypeId 3 (CALLRESULT). It validates that Action
+// is non-empty. The Action must be provided explicitly
+// because CALLRESULT does not carry it on the wire.
 func NewDecodedCallResult[T any](
 	uniqueId UniqueId,
 	action string,

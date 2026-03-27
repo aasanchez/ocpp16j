@@ -1,7 +1,13 @@
 package ocpp16json
 
-// CallError represents a parsed CALLERROR message
-// (MessageTypeId 4) as defined in section 4.2.3.
+// CallError represents a CALLERROR message
+// (MessageTypeId 4) as defined in OCPP-J 1.6
+// specification section 4.2.3. A CallError consists of
+// 5 elements: MessageTypeId, UniqueId, ErrorCode,
+// ErrorDescription, and ErrorDetails. It is sent when a
+// CALL cannot be handled — either due to a transport
+// error or because the CALL content does not meet the
+// requirements for a proper message.
 type CallError struct {
 	UniqueId         UniqueId
 	ErrorCode        ErrorCode
@@ -10,9 +16,12 @@ type CallError struct {
 }
 
 // NewCallError creates a CALLERROR message
-// (MessageTypeId 4). ErrorDescription may be empty per the
-// spec. If ErrorDetails is nil, it defaults to an empty
-// object.
+// (MessageTypeId 4). The UniqueId MUST match the UniqueId
+// of the [Call] being responded to. ErrorDescription
+// should be filled in if possible; an empty string is
+// valid per the spec (section 4.2.3, Table 6). If
+// ErrorDetails is nil, it defaults to an empty JSON
+// object as required by the spec.
 func NewCallError(
 	uniqueId UniqueId,
 	errorCode ErrorCode,
