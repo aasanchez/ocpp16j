@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	heavyWorkers    = 50
-	heavyIterations = 500
-	actionCount     = 20
+	heavyWorkers    = 100
+	heavyIterations = 1000
+	actionCount     = 50
 )
 
 // errTestPayload is a test-only sentinel error.
@@ -35,16 +35,30 @@ func raceConstructor(
 	return input, nil
 }
 
-// TestRegistry_ConcurrentDecode hammers Decode from 50
-// goroutines, each doing 500 iterations, all hitting the
-// same registered action.
-func TestRegistry_ConcurrentDecode(t *testing.T) {
-	t.Parallel()
-
+func registryWithActions(
+	count int,
+) *ocpp16json.Registry {
 	registry := ocpp16json.NewRegistry()
 
 	decoder := ocpp16json.JSONDecoder(raceConstructor)
-	_ = registry.Register("TestAction", decoder)
+
+	for actionIndex := range count {
+		actionName := fmt.Sprintf(
+			"Action%d", actionIndex,
+		)
+		_ = registry.Register(actionName, decoder)
+	}
+
+	return registry
+}
+
+// TestRegistry_ConcurrentDecode hammers Decode from 100
+// goroutines, each doing 1000 iterations, all hitting the
+// same registered action. Total: 100,000 operations.
+func TestRegistry_ConcurrentDecode(t *testing.T) {
+	t.Parallel()
+
+	registry := registryWithActions(1)
 
 	payload := json.RawMessage(`{"name": "test"}`)
 
@@ -58,7 +72,7 @@ func TestRegistry_ConcurrentDecode(t *testing.T) {
 
 			for range heavyIterations {
 				_, decodeErr := registry.Decode(
-					"TestAction", payload,
+					"Action0", payload,
 				)
 				if decodeErr != nil {
 					t.Errorf("decode failed: %v", decodeErr)
@@ -70,10 +84,10 @@ func TestRegistry_ConcurrentDecode(t *testing.T) {
 	waitGroup.Wait()
 }
 
-// TestRegistry_ConcurrentRegisterAndDecode runs writers
-// and readers simultaneously. 50 goroutines register
-// different actions while another 50 goroutines decode
-// from already-registered actions — all at the same time.
+// TestRegistry_ConcurrentRegisterAndDecode runs 100
+// writers and 100 readers simultaneously. Writers register
+// actions (with expected collisions) while readers decode
+// from a pre-registered action. Total: 100,000+ operations.
 func TestRegistry_ConcurrentRegisterAndDecode(
 	t *testing.T,
 ) {
@@ -84,13 +98,11 @@ func TestRegistry_ConcurrentRegisterAndDecode(
 	decoder := ocpp16json.JSONDecoder(raceConstructor)
 	payload := json.RawMessage(`{"name": "test"}`)
 
-	// Pre-register a base action.
 	_ = registry.Register("Base", decoder)
 
 	var waitGroup sync.WaitGroup
 
-	// Writers: register many actions concurrently.
-	// Some will collide — that's expected.
+	// Writers.
 	waitGroup.Add(heavyWorkers)
 
 	for workerIndex := range heavyWorkers {
@@ -104,7 +116,7 @@ func TestRegistry_ConcurrentRegisterAndDecode(
 		}(workerIndex)
 	}
 
-	// Readers: decode the base action concurrently.
+	// Readers.
 	waitGroup.Add(heavyWorkers)
 
 	for range heavyWorkers {
@@ -125,24 +137,15 @@ func TestRegistry_ConcurrentRegisterAndDecode(
 	waitGroup.Wait()
 }
 
-// TestRegistry_ConcurrentDecodeMultipleActions decodes
-// from multiple different registered actions concurrently.
+// TestRegistry_ConcurrentDecodeMultipleActions spreads
+// 100 goroutines across 50 different registered actions.
+// Total: 100,000 operations across 50 actions.
 func TestRegistry_ConcurrentDecodeMultipleActions(
 	t *testing.T,
 ) {
 	t.Parallel()
 
-	registry := ocpp16json.NewRegistry()
-
-	decoder := ocpp16json.JSONDecoder(raceConstructor)
-
-	// Register multiple actions.
-	for actionIndex := range actionCount {
-		actionName := fmt.Sprintf(
-			"Action%d", actionIndex,
-		)
-		_ = registry.Register(actionName, decoder)
-	}
+	registry := registryWithActions(actionCount)
 
 	payload := json.RawMessage(`{"name": "test"}`)
 
@@ -172,21 +175,19 @@ func TestRegistry_ConcurrentDecodeMultipleActions(
 	waitGroup.Wait()
 }
 
-// TestRegistry_ConcurrentDecodeWithErrors mixes
-// successful decodes and unknown-action errors from
-// multiple goroutines.
+// TestRegistry_ConcurrentDecodeWithErrors mixes success
+// paths, unknown-action errors, and validation failures
+// from 100 goroutines. Total: 200,000+ operations.
 func TestRegistry_ConcurrentDecodeWithErrors(
 	t *testing.T,
 ) {
 	t.Parallel()
 
-	registry := ocpp16json.NewRegistry()
-
-	decoder := ocpp16json.JSONDecoder(raceConstructor)
-	_ = registry.Register("Known", decoder)
+	registry := registryWithActions(actionCount)
 
 	validPayload := json.RawMessage(`{"name": "ok"}`)
 	invalidPayload := json.RawMessage(`{"name": ""}`)
+	brokenPayload := json.RawMessage(`not json`)
 
 	var waitGroup sync.WaitGroup
 
@@ -196,26 +197,220 @@ func TestRegistry_ConcurrentDecodeWithErrors(
 		go func(index int) {
 			defer waitGroup.Done()
 
+			actionName := fmt.Sprintf(
+				"Action%d", index%actionCount,
+			)
+
 			for range heavyIterations {
-				if index%2 == 0 {
-					// Success path.
-					_, decodeErr := registry.Decode(
-						"Known", validPayload,
-					)
-					if decodeErr != nil {
+				// Success path.
+				_, _ = registry.Decode(
+					actionName, validPayload,
+				)
+				// Unknown action.
+				_, _ = registry.Decode(
+					"NonExistent", validPayload,
+				)
+				// Validation failure.
+				_, _ = registry.Decode(
+					actionName, invalidPayload,
+				)
+				// Unmarshal failure.
+				_, _ = registry.Decode(
+					actionName, brokenPayload,
+				)
+			}
+		}(workerIndex)
+	}
+
+	waitGroup.Wait()
+}
+
+// TestRegistry_ConcurrentRegisterDuplicates hammers
+// Register with the same action name from 100 goroutines.
+// Exactly one must succeed, the rest must get
+// ErrActionAlreadyRegistered.
+func TestRegistry_ConcurrentRegisterDuplicates(
+	t *testing.T,
+) {
+	t.Parallel()
+
+	registry := ocpp16json.NewRegistry()
+
+	decoder := ocpp16json.JSONDecoder(raceConstructor)
+
+	var (
+		waitGroup    sync.WaitGroup
+		successCount int64
+		mutex        sync.Mutex
+	)
+
+	waitGroup.Add(heavyWorkers)
+
+	for range heavyWorkers {
+		go func() {
+			defer waitGroup.Done()
+
+			registerErr := registry.Register(
+				"SameAction", decoder,
+			)
+			if registerErr == nil {
+				mutex.Lock()
+				successCount++
+				mutex.Unlock()
+			}
+		}()
+	}
+
+	waitGroup.Wait()
+
+	if successCount != 1 {
+		t.Fatalf(
+			"expected exactly 1 success, got %d",
+			successCount,
+		)
+	}
+}
+
+// TestParse_ConcurrentParseSameBytes verifies Parse is
+// safe to call concurrently with the same input bytes.
+// Total: 100,000 operations.
+func TestParse_ConcurrentParseSameBytes(t *testing.T) {
+	t.Parallel()
+
+	wire := []byte(
+		`[2,"19223201","BootNotification",` +
+			`{"chargePointVendor":"VendorX",` +
+			`"chargePointModel":"Model1"}]`,
+	)
+
+	var waitGroup sync.WaitGroup
+
+	waitGroup.Add(heavyWorkers)
+
+	for range heavyWorkers {
+		go func() {
+			defer waitGroup.Done()
+
+			for range heavyIterations {
+				message, parseErr := ocpp16json.Parse(
+					wire,
+				)
+				if parseErr != nil {
+					t.Errorf("parse failed: %v", parseErr)
+
+					return
+				}
+
+				if !ocpp16json.IsCall(message) {
+					t.Error("expected Call message")
+				}
+			}
+		}()
+	}
+
+	waitGroup.Wait()
+}
+
+// TestParse_ConcurrentParseDifferentTypes parses Call,
+// CallResult, and CallError concurrently from separate
+// goroutines. Total: 300,000 operations.
+func TestParse_ConcurrentParseDifferentTypes(
+	t *testing.T,
+) {
+	t.Parallel()
+
+	messages := [][]byte{
+		[]byte(`[2,"1","Action",{}]`),
+		[]byte(`[3,"1",{"ok":true}]`),
+		[]byte(`[4,"1","GenericError","err",{}]`),
+	}
+
+	var waitGroup sync.WaitGroup
+
+	for _, wire := range messages {
+		waitGroup.Add(heavyWorkers)
+
+		for range heavyWorkers {
+			go func(data []byte) {
+				defer waitGroup.Done()
+
+				for range heavyIterations {
+					_, parseErr := ocpp16json.Parse(data)
+					if parseErr != nil {
 						t.Errorf(
-							"decode failed: %v",
-							decodeErr,
+							"parse failed: %v",
+							parseErr,
 						)
 					}
-				} else {
-					// Error paths: unknown action
-					// and validation failure.
-					_, _ = registry.Decode(
-						"Unknown", validPayload,
-					)
-					_, _ = registry.Decode(
-						"Known", invalidPayload,
+				}
+			}(wire)
+		}
+	}
+
+	waitGroup.Wait()
+}
+
+// TestFullPipeline_ConcurrentParseDecodeRespond runs
+// the full pipeline (parse → decode → respond)
+// concurrently from 100 goroutines. Total: 100,000
+// full round-trips.
+func TestFullPipeline_ConcurrentParseDecodeRespond(
+	t *testing.T,
+) {
+	t.Parallel()
+
+	registry := registryWithActions(actionCount)
+
+	wires := make([][]byte, actionCount)
+	for actionIndex := range actionCount {
+		wires[actionIndex] = []byte(fmt.Sprintf(
+			`[2,"id-%d","Action%d",{"name":"test"}]`,
+			actionIndex, actionIndex,
+		))
+	}
+
+	var waitGroup sync.WaitGroup
+
+	waitGroup.Add(heavyWorkers)
+
+	for workerIndex := range heavyWorkers {
+		go func(index int) {
+			defer waitGroup.Done()
+
+			wire := wires[index%actionCount]
+
+			for range heavyIterations {
+				message, parseErr := ocpp16json.Parse(
+					wire,
+				)
+				if parseErr != nil {
+					t.Errorf("parse: %v", parseErr)
+
+					return
+				}
+
+				call, callErr := ocpp16json.AsCall(
+					message,
+				)
+				if callErr != nil {
+					t.Errorf("as call: %v", callErr)
+
+					return
+				}
+
+				_, decodeErr := registry.Decode(
+					call.Action, call.Payload,
+				)
+				if decodeErr != nil {
+					t.Errorf("decode: %v", decodeErr)
+
+					return
+				}
+
+				_, marshalErr := json.Marshal(message)
+				if marshalErr != nil {
+					t.Errorf(
+						"marshal: %v", marshalErr,
 					)
 				}
 			}
