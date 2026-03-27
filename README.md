@@ -5,6 +5,7 @@ CallResult, and CallError messages per the OCPP-J specification.
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/aasanchez/ocpp16j.svg)](https://pkg.go.dev/github.com/aasanchez/ocpp16j)
 [![Go Report Card](https://goreportcard.com/badge/github.com/aasanchez/ocpp16j)](https://goreportcard.com/report/github.com/aasanchez/ocpp16j)
+[![codecov](https://codecov.io/gh/aasanchez/ocpp16j/graph/badge.svg?token=fB7USk3jRp)](https://codecov.io/gh/aasanchez/ocpp16j)
 
 ## What is this?
 
