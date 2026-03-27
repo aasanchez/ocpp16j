@@ -354,6 +354,285 @@ func TestParse_ConcurrentParseDifferentTypes(
 // the full pipeline (parse → decode → respond)
 // concurrently from 100 goroutines. Total: 100,000
 // full round-trips.
+// TestMultipleRegistries_ConcurrentUse creates multiple
+// independent registries and uses them concurrently.
+// Verifies no shared state leaks between instances.
+func TestMultipleRegistries_ConcurrentUse(
+	t *testing.T,
+) {
+	t.Parallel()
+
+	registryCount := 10
+	registries := make(
+		[]*ocpp16json.Registry, registryCount,
+	)
+
+	for registryIndex := range registryCount {
+		registries[registryIndex] = registryWithActions(
+			actionCount,
+		)
+	}
+
+	payload := json.RawMessage(`{"name": "test"}`)
+
+	var waitGroup sync.WaitGroup
+
+	waitGroup.Add(heavyWorkers)
+
+	for workerIndex := range heavyWorkers {
+		go func(index int) {
+			defer waitGroup.Done()
+
+			registry := registries[index%registryCount]
+
+			actionName := fmt.Sprintf(
+				"Action%d", index%actionCount,
+			)
+
+			for range heavyIterations {
+				_, decodeErr := registry.Decode(
+					actionName, payload,
+				)
+				if decodeErr != nil {
+					t.Errorf("decode: %v", decodeErr)
+				}
+			}
+		}(workerIndex)
+	}
+
+	waitGroup.Wait()
+}
+
+// TestRegistry_ConcurrentPopulateAndQuery creates a
+// fresh registry and has goroutines simultaneously
+// registering actions and querying them — some queries
+// will find the action, some won't, depending on timing.
+func TestRegistry_ConcurrentPopulateAndQuery(
+	t *testing.T,
+) {
+	t.Parallel()
+
+	registry := ocpp16json.NewRegistry()
+
+	decoder := ocpp16json.JSONDecoder(raceConstructor)
+	payload := json.RawMessage(`{"name": "test"}`)
+
+	var waitGroup sync.WaitGroup
+
+	waitGroup.Add(actionCount)
+
+	for actionIndex := range actionCount {
+		go func(index int) {
+			defer waitGroup.Done()
+
+			actionName := fmt.Sprintf(
+				"Action%d", index,
+			)
+			_ = registry.Register(actionName, decoder)
+		}(actionIndex)
+	}
+
+	waitGroup.Add(heavyWorkers)
+
+	for workerIndex := range heavyWorkers {
+		go func(index int) {
+			defer waitGroup.Done()
+
+			for range heavyIterations {
+				actionName := fmt.Sprintf(
+					"Action%d", index%actionCount,
+				)
+
+				_, _ = registry.Decode(
+					actionName, payload,
+				)
+			}
+		}(workerIndex)
+	}
+
+	waitGroup.Wait()
+}
+
+// TestMarshalJSON_ConcurrentMarshalSameMessage verifies
+// MarshalJSON on the same Call struct from many goroutines.
+func TestMarshalJSON_ConcurrentMarshalSameMessage(
+	t *testing.T,
+) {
+	t.Parallel()
+
+	message, _ := ocpp16json.Parse(
+		[]byte(
+			`[2,"19223201","BootNotification",` +
+				`{"chargePointVendor":"VendorX"}]`,
+		),
+	)
+
+	call, _ := ocpp16json.AsCall(message)
+
+	var waitGroup sync.WaitGroup
+
+	waitGroup.Add(heavyWorkers)
+
+	for range heavyWorkers {
+		go func() {
+			defer waitGroup.Done()
+
+			for range heavyIterations {
+				_, marshalErr := json.Marshal(call)
+				if marshalErr != nil {
+					t.Errorf(
+						"marshal: %v", marshalErr,
+					)
+				}
+			}
+		}()
+	}
+
+	waitGroup.Wait()
+}
+
+// TestTypePredicates_ConcurrentChecks calls IsCall,
+// IsCallResult, IsCallError, AsCall, AsCallResult,
+// AsCallError concurrently on the same messages.
+func TestTypePredicates_ConcurrentChecks(
+	t *testing.T,
+) {
+	t.Parallel()
+
+	callMsg, _ := ocpp16json.Parse(
+		[]byte(`[2,"1","Action",{}]`),
+	)
+
+	resultMsg, _ := ocpp16json.Parse(
+		[]byte(`[3,"1",{}]`),
+	)
+
+	errorMsg, _ := ocpp16json.Parse(
+		[]byte(`[4,"1","GenericError","",{}]`),
+	)
+
+	var waitGroup sync.WaitGroup
+
+	waitGroup.Add(heavyWorkers)
+
+	for range heavyWorkers {
+		go func() {
+			defer waitGroup.Done()
+
+			for range heavyIterations {
+				ocpp16json.IsCall(callMsg)
+				ocpp16json.IsCallResult(resultMsg)
+				ocpp16json.IsCallError(errorMsg)
+
+				_, _ = ocpp16json.AsCall(callMsg)
+				_, _ = ocpp16json.AsCallResult(
+					resultMsg,
+				)
+				_, _ = ocpp16json.AsCallError(errorMsg)
+
+				_, _ = ocpp16json.AsCall(resultMsg)
+				_, _ = ocpp16json.AsCallResult(callMsg)
+				_, _ = ocpp16json.AsCallError(callMsg)
+			}
+		}()
+	}
+
+	waitGroup.Wait()
+}
+
+// TestNewConstructors_ConcurrentCreation calls NewCall,
+// NewCallResult, NewCallError concurrently.
+func TestNewConstructors_ConcurrentCreation(
+	t *testing.T,
+) {
+	t.Parallel()
+
+	uniqueId, _ := ocpp16json.NewUniqueId("19223201")
+
+	var waitGroup sync.WaitGroup
+
+	waitGroup.Add(heavyWorkers)
+
+	for range heavyWorkers {
+		go func() {
+			defer waitGroup.Done()
+
+			for range heavyIterations {
+				_, _ = ocpp16json.NewCall(
+					uniqueId, "Action",
+					map[string]string{"k": "v"},
+				)
+
+				_, _ = ocpp16json.NewCallResult(
+					uniqueId,
+					map[string]string{"k": "v"},
+				)
+
+				_, _ = ocpp16json.NewCallError(
+					uniqueId,
+					ocpp16json.GenericError,
+					"desc",
+					map[string]any{},
+				)
+			}
+		}()
+	}
+
+	waitGroup.Wait()
+}
+
+// TestDomainTypes_ConcurrentCreation calls NewUniqueId
+// and NewErrorCode concurrently with various inputs.
+func TestDomainTypes_ConcurrentCreation(
+	t *testing.T,
+) {
+	t.Parallel()
+
+	uniqueIdInputs := []string{
+		"19223201",
+		"550e8400-e29b-41d4-a716-446655440000",
+		"short",
+		"",
+	}
+
+	errorCodeInputs := []string{
+		"NotImplemented",
+		"GenericError",
+		"MadeUpError",
+		"",
+	}
+
+	var waitGroup sync.WaitGroup
+
+	waitGroup.Add(heavyWorkers)
+
+	for workerIndex := range heavyWorkers {
+		go func(index int) {
+			defer waitGroup.Done()
+
+			for range heavyIterations {
+				uidInput := uniqueIdInputs[index%len(
+					uniqueIdInputs,
+				)]
+				_, _ = ocpp16json.NewUniqueId(uidInput)
+
+				codeInput := errorCodeInputs[index%len(
+					errorCodeInputs,
+				)]
+				_, _ = ocpp16json.NewErrorCode(
+					codeInput,
+				)
+			}
+		}(workerIndex)
+	}
+
+	waitGroup.Wait()
+}
+
+// TestFullPipeline_ConcurrentParseDecodeRespond runs
+// the full pipeline (parse → decode → respond)
+// concurrently from 100 goroutines. Total: 100,000
+// full round-trips.
 func TestFullPipeline_ConcurrentParseDecodeRespond(
 	t *testing.T,
 ) {
