@@ -24,3 +24,19 @@ func Test_errMessageNotCall_Message(t *testing.T) {
 		)
 	}
 }
+
+func Test_errMessageNotCallResult_NonNil(t *testing.T) {
+	t.Parallel()
+
+	if errMessageNotCallResult == nil {
+		t.Fatal("errMessageNotCallResult is nil")
+	}
+}
+
+func Test_errMessageNotCallError_NonNil(t *testing.T) {
+	t.Parallel()
+
+	if errMessageNotCallError == nil {
+		t.Fatal("errMessageNotCallError is nil")
+	}
+}

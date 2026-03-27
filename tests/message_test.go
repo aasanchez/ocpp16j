@@ -11,20 +11,21 @@ import (
 // package. Defined here because message_test.go is the
 // foundational test file.
 const (
-	expectedCall       ocpp16json.MessageType = 2
-	expectedCallResult ocpp16json.MessageType = 3
-	expectedCallError  ocpp16json.MessageType = 4
-	testUniqueIdStr                           = "19223201"
-	testUniqueId       ocpp16json.UniqueId    = testUniqueIdStr
-	testAction                                = "Authorize"
-	testErrorCode      ocpp16json.ErrorCode   = "NotImplemented"
-	testErrorDesc                             = "Unknown action"
-	emptyPayload                              = `{}`
-	errFmtIntExpGot                           = "expected %d, got %d"
-	errFmtStrExpGot                           = "expected %q, got %q"
-	errFmtNilGot                              = "expected nil error, got %v"
-	errFmtExpErrGot                           = "expected %v, got %v"
-	errFmtElementCount                        = "expected %d elements, got %d"
+	expectedCall         ocpp16json.MessageType = 2
+	expectedCallResult   ocpp16json.MessageType = 3
+	expectedCallError    ocpp16json.MessageType = 4
+	testUniqueIdStr                             = "19223201"
+	testUniqueId         ocpp16json.UniqueId    = testUniqueIdStr
+	testAction                                  = "Authorize"
+	testErrorCode        ocpp16json.ErrorCode   = "NotImplemented"
+	testErrorDesc                               = "Unknown action"
+	emptyPayload                                = `{}`
+	errFmtIntExpGot                             = "expected %d, got %d"
+	errFmtStrExpGot                             = "expected %q, got %q"
+	errFmtNilGot                                = "expected nil error, got %v"
+	errFmtExpErrGot                             = "expected %v, got %v"
+	errFmtElementCount                          = "expected %d elements, got %d"
+	errExpectedErrGotNil                        = "expected error, got nil"
 )
 
 // --- MessageType constants ---
@@ -118,7 +119,7 @@ func Test_DecodedCall_EmptyAction_ReturnsError(
 		testUniqueId, "", nil,
 	)
 	if err == nil {
-		t.Fatal("expected error for empty action, got nil")
+		t.Fatal(errExpectedErrGotNil)
 	}
 }
 
@@ -175,7 +176,7 @@ func Test_DecodedCallResult_EmptyAction_ReturnsError(
 		testUniqueId, "", nil,
 	)
 	if err == nil {
-		t.Fatal("expected error for empty action, got nil")
+		t.Fatal(errExpectedErrGotNil)
 	}
 }
 
@@ -355,6 +356,90 @@ func Test_AsCall_CallResult_ReturnsError(
 
 	_, err := ocpp16json.AsCall(rawCallResult)
 	if err == nil {
-		t.Fatal("expected error, got nil")
+		t.Fatal(errExpectedErrGotNil)
+	}
+}
+
+// --- AsCallResult ---
+
+func Test_AsCallResult_CallResult_ReturnsValue(
+	t *testing.T,
+) {
+	t.Parallel()
+
+	callResult := ocpp16json.CallResult{
+		UniqueId: testUniqueId,
+		Payload:  json.RawMessage(emptyPayload),
+	}
+
+	result, err := ocpp16json.AsCallResult(callResult)
+	if err != nil {
+		t.Fatalf(errFmtNilGot, err)
+	}
+
+	if result.UniqueId != testUniqueId {
+		t.Fatalf(
+			errFmtStrExpGot,
+			testUniqueId,
+			result.UniqueId,
+		)
+	}
+}
+
+func Test_AsCallResult_Call_ReturnsError(t *testing.T) {
+	t.Parallel()
+
+	call := ocpp16json.Call{
+		UniqueId: testUniqueId,
+		Action:   testAction,
+		Payload:  json.RawMessage(emptyPayload),
+	}
+
+	_, err := ocpp16json.AsCallResult(call)
+	if err == nil {
+		t.Fatal(errExpectedErrGotNil)
+	}
+}
+
+// --- AsCallError ---
+
+func Test_AsCallError_CallError_ReturnsValue(
+	t *testing.T,
+) {
+	t.Parallel()
+
+	callError := ocpp16json.CallError{
+		UniqueId:         testUniqueId,
+		ErrorCode:        testErrorCode,
+		ErrorDescription: testErrorDesc,
+		ErrorDetails:     map[string]any{},
+	}
+
+	result, err := ocpp16json.AsCallError(callError)
+	if err != nil {
+		t.Fatalf(errFmtNilGot, err)
+	}
+
+	if result.ErrorCode != testErrorCode {
+		t.Fatalf(
+			errFmtStrExpGot,
+			testErrorCode,
+			result.ErrorCode,
+		)
+	}
+}
+
+func Test_AsCallError_Call_ReturnsError(t *testing.T) {
+	t.Parallel()
+
+	call := ocpp16json.Call{
+		UniqueId: testUniqueId,
+		Action:   testAction,
+		Payload:  json.RawMessage(emptyPayload),
+	}
+
+	_, err := ocpp16json.AsCallError(call)
+	if err == nil {
+		t.Fatal(errExpectedErrGotNil)
 	}
 }

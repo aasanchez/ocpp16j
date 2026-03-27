@@ -67,6 +67,32 @@ func AsCall(message Message) (Call, error) {
 	return rawCall, nil
 }
 
+// AsCallResult extracts the CallResult from a Message, or
+// returns an error if the message is not a CallResult.
+func AsCallResult(
+	message Message,
+) (CallResult, error) {
+	callResult, isCallResult := message.(CallResult)
+	if !isCallResult {
+		return CallResult{}, errMessageNotCallResult
+	}
+
+	return callResult, nil
+}
+
+// AsCallError extracts the CallError from a Message, or
+// returns an error if the message is not a CallError.
+func AsCallError(
+	message Message,
+) (CallError, error) {
+	callError, isCallError := message.(CallError)
+	if !isCallError {
+		return CallError{}, errMessageNotCallError
+	}
+
+	return callError, nil
+}
+
 func validateAction(action string) error {
 	if action == emptyString {
 		return ErrInvalidAction
