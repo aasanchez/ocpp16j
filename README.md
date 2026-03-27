@@ -11,12 +11,16 @@ CallResult, and CallError messages per the OCPP-J specification.
 
 This package implements the **message wrapper layer** defined in
 [section 4 of the OCPP-J 1.6 specification](https://www.openchargealliance.org/).
-It sits between raw WebSocket bytes and typed OCPP payloads:
+It sits between raw JSON bytes and typed OCPP payloads:
 
 ```text
-WebSocket bytes  -->  ocpp16j (this package)  -->  ocpp16messages
-                      Parse / Marshal / Validate    Payload types
+JSON bytes  -->  ocpp16j (this package)  -->  ocpp16messages
+                 Parse / Marshal / Validate    Payload types
 ```
+
+The JSON can come from any source — a WebSocket connection, a message
+broker, another package, or a file. This library is transport-agnostic;
+it only cares about the JSON content.
 
 It owns the JSON array envelope — **not** the Payload contents. Payload
 validation is delegated to

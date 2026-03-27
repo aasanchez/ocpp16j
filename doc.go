@@ -17,7 +17,8 @@
 // # Typical Flow
 //
 // A common integration flow looks like this:
-//  1. Receive a raw JSON message from the WebSocket transport.
+//  1. Receive a raw JSON message (from a WebSocket, message
+//     broker, or any other source).
 //  2. Parse it with [Parse] to detect the message type.
 //  3. For a Call, use [AsCall] to extract the Call struct,
 //     then [Registry.Decode] to validate the Payload.

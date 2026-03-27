@@ -14,7 +14,7 @@ This is a library with no binary build target.
 This package follows OCPP-J 1.6 specification terminology strictly.
 Reading the code should feel like reading the spec itself.
 
-- **Message** — the JSON array sent over WebSocket (not "frame")
+- **Message** — the JSON array (transport-agnostic, not "frame")
 - **MessageType** / **MessageTypeId** — the integer 2, 3, or 4
 - **UniqueId** — the string identifier matching request to response
 - **Action** — the case-sensitive name of the remote procedure
@@ -59,7 +59,7 @@ make test                          # Unit and example tests with coverage
 
 ## Architecture
 
-This package sits between raw WebSocket bytes and
+This package sits between raw JSON bytes and
 `github.com/aasanchez/ocpp16messages`. It owns:
 
 - **Message parsing**: `Parse([]byte) (Message, error)` — validates
